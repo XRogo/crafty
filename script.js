@@ -15,21 +15,22 @@ const loadingEl = document.getElementById('loading');
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-// === STAN ===
+// === STAN MAPY ===
 let viewX = 0, viewY = 0;
 let zoom = 1;
 
-// === CACHE ===
+// === CACHE I ŁADOWANIE ===
 const tileCache = new Map();
 const loadingRegions = new Set();
 let loadedCount = 0;
 
-// === PLACEHOLDER ===
+// === PLACEHOLDER (szary kafelek) ===
 const placeholderImg = new Image();
 placeholderImg.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAA7AAAAOwBeShxvQAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAADWSURBVHic7cExAQAAAMKg9U9tCF8gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPD8KTAAAEi8L8gAAAAASUVORK5CYII=';
 
-// === FUNKCJE ===
+// === FUNKCJE POMOCNICZE ===
 function blockToRegion(b) { return Math.floor(b / REGION_SIZE); }
+
 function worldToScreen(x, z) {
     return {
         x: (x - viewX) * zoom + canvas.width / 2,
@@ -37,70 +38,87 @@ function worldToScreen(x, z) {
     };
 }
 
-// === POPRAWNY PARSER region.xaero ===
+// === BEZPIECZNY PARSER region.xaero (RLE + paleta + walidacja) ===
 async function parseRegionXaero(buffer) {
+    if (buffer.byteLength < 4) return [];
+
     const view = new DataView(buffer);
     let offset = 0;
 
+    // Czytamy tileCount
+    if (offset + 4 > buffer.byteLength) return [];
     const tileCount = view.getInt32(offset, true);
     offset += 4;
 
+    const maxTiles = Math.min(tileCount, 1024);
+    const headerSize = maxTiles * 12;
+    if (offset + headerSize > buffer.byteLength) return [];
+
     const headers = [];
-    for (let i = 0; i < tileCount; i++) {
+    for (let i = 0; i < maxTiles; i++) {
+        if (offset + 12 > buffer.byteLength) break;
+
         const dataOffset = view.getInt32(offset, true);
         const dataLength = view.getInt32(offset + 4, true);
         const flags = view.getInt32(offset + 8, true);
         offset += 12;
 
-        if (dataLength === 0 || dataOffset === 0) continue;
-        if (dataLength > 2 * 1024 * 1024) continue; // zabezpieczenie
+        if (dataLength <= 0 || dataOffset <= 0 || dataOffset + dataLength > buffer.byteLength) {
+            continue;
+        }
 
         headers.push({ dataOffset, dataLength, flags, index: i });
     }
 
     const tiles = [];
     for (const h of headers) {
-        const tileX = h.index % 32;
-        const tileZ = Math.floor(h.index / 32);
+        try {
+            const tileX = h.index % 32;
+            const tileZ = Math.floor(h.index / 32);
 
-        let pos = h.dataOffset;
-        const end = pos + h.dataLength;
+            let pos = h.dataOffset;
+            const end = pos + h.dataLength;
 
-        // Paleta
-        const palette = [];
-        for (let i = 0; i < 256 && pos + 4 <= end; i++) {
-            palette.push([buffer[pos++], buffer[pos++], buffer[pos++], buffer[pos++]]);
-        }
-
-        // RLE
-        const pixels = new Uint8ClampedArray(TILE_SIZE * TILE_SIZE * 4);
-        let pi = 0;
-
-        while (pos < end && pi < pixels.length) {
-            const run = buffer[pos++];
-            const idx = buffer[pos++];
-            const [r, g, b, a] = palette[idx] || [135, 206, 235, 255]; // niebo
-
-            for (let i = 0; i < run && pi < pixels.length; i++) {
-                pixels[pi++] = r; pixels[pi++] = g; pixels[pi++] = b; pixels[pi++] = a;
+            // Paleta: max 256 kolorów
+            const palette = [];
+            const maxPalette = Math.min(256, Math.floor((end - pos) / 4));
+            for (let i = 0; i < maxPalette; i++) {
+                if (pos + 4 > buffer.byteLength) break;
+                palette.push([buffer[pos++], buffer[pos++], buffer[pos++], buffer[pos++]]);
             }
-        }
 
-        // Uzupełnij
-        while (pi < pixels.length) {
-            pixels[pi++] = 135; pixels[pi++] = 206; pixels[pi++] = 235; pixels[pi++] = 255;
-        }
+            // RLE
+            const pixels = new Uint8ClampedArray(TILE_SIZE * TILE_SIZE * 4);
+            let pi = 0;
 
-        const imageData = new ImageData(TILE_SIZE, TILE_SIZE);
-        imageData.data.set(pixels);
-        const bitmap = await createImageBitmap(imageData);
-        tiles.push({ bitmap, tileX, tileZ });
+            while (pos + 2 <= end && pi < pixels.length) {
+                const run = buffer[pos++];
+                const idx = buffer[pos++];
+                const [r, g, b, a] = palette[idx] || [135, 206, 235, 255]; // niebo
+
+                for (let i = 0; i < run && pi < pixels.length; i++) {
+                    pixels[pi++] = r; pixels[pi++] = g; pixels[pi++] = b; pixels[pi++] = a;
+                }
+            }
+
+            // Uzupełnij resztę
+            while (pi < pixels.length) {
+                pixels[pi++] = 135; pixels[pi++] = 206; pixels[pi++] = 235; pixels[pi++] = 255;
+            }
+
+            const imageData = new ImageData(TILE_SIZE, TILE_SIZE);
+            imageData.data.set(pixels);
+            const bitmap = await createImageBitmap(imageData);
+            tiles.push({ bitmap, tileX, tileZ });
+        } catch (e) {
+            continue;
+        }
     }
 
     return tiles;
 }
 
-// === ŁADOWANIE REGIONU ===
+// === ŁADOWANIE REGIONU (bezpieczne) ===
 async function loadRegion(rx, rz) {
     const key = `${rx}_${rz}`;
     if (loadingRegions.has(key)) return;
@@ -109,7 +127,6 @@ async function loadRegion(rx, rz) {
     try {
         const response = await fetch(`tiles/${rx}_${rz}.zip`);
         if (!response.ok) {
-            console.warn(`Brak: tiles/${rx}_${rz}.zip`);
             loadingRegions.delete(key);
             return;
         }
@@ -117,7 +134,10 @@ async function loadRegion(rx, rz) {
         const arrayBuffer = await response.arrayBuffer();
         const zip = await JSZip.loadAsync(arrayBuffer);
         const file = zip.file("region.xaero");
-        if (!file) throw new Error("No region.xaero");
+        if (!file) {
+            loadingRegions.delete(key);
+            return;
+        }
 
         const regionBuffer = await file.async("arraybuffer");
         const tiles = await parseRegionXaero(regionBuffer);
@@ -134,12 +154,9 @@ async function loadRegion(rx, rz) {
         loadingRegions.delete(key);
         draw();
     } catch (e) {
-        console.warn(`Błąd regionu ${rx}_${rz}:`, e);
         loadingRegions.delete(key);
     }
 }
-
-// === getVisibleTiles, draw, zoom, pan, resize – bez zmian ===
 
 // === WIDOCZNE TILE'E ===
 function getVisibleTiles() {
@@ -172,7 +189,7 @@ function draw() {
 
     const visible = getVisibleTiles();
 
-    // Placeholder
+    // Placeholder dla brakujących
     visible.forEach(t => {
         const key = `${t.rx}_${t.rz}_${t.tx}_${t.tz}`;
         if (!tileCache.has(key)) {
@@ -182,7 +199,7 @@ function draw() {
         }
     });
 
-    // Rzeczywiste tile'e
+    // Rysuj załadowane tile'e
     tileCache.forEach((bitmap, key) => {
         const [rx, rz, tx, tz] = key.split('_').map(Number);
         const blockX = rx * REGION_SIZE + tx * TILE_SIZE;
@@ -200,13 +217,14 @@ function draw() {
         loadRegion(rx, rz);
     });
 
+    // Ukryj loading po pierwszym tile'u
     if (loadedCount > 0) {
         loadingEl.style.opacity = '0';
         setTimeout(() => loadingEl.style.display = 'none', 500);
     }
 }
 
-// === ZOOM ===
+// === ZOOM (scroll + Ctrl) ===
 canvas.addEventListener('wheel', e => {
     e.preventDefault();
     const delta = e.deltaY > 0 ? 0.9 : 1.1;
@@ -230,7 +248,7 @@ canvas.addEventListener('wheel', e => {
     draw();
 });
 
-// === PAN ===
+// === PAN (drag) ===
 let dragging = false, px = 0, py = 0;
 canvas.addEventListener('mousedown', e => { dragging = true; px = e.clientX; py = e.clientY; });
 canvas.addEventListener('mousemove', e => {
