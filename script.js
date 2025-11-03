@@ -4,6 +4,7 @@ const ZOOM_MIN = 0.05;
 const ZOOM_MAX = 100;
 const ZOOM_STEP = 0.1;
 const CTRL_ZOOM_STEP = 1;
+const MAX_TILE = 34;
 
 // === ELEMENTY ===
 const canvas = document.getElementById('canvas');
@@ -18,13 +19,32 @@ canvas.height = window.innerHeight;
 // === STAN ===
 let viewX = 0, viewY = 0;
 let zoom = 1;
-const tileCache = new Map();  // null = nie ma pliku
+const tileCache = new Map();
 let loadedCount = 0;
 
-// === ŁADOWANIE TILE'A (proste, bez HEAD) ===
+// === FLING (rzut) ===
+let isDragging = false;
+let prevX = 0, prevY = 0;
+let velocityX = 0, velocityY = 0;
+let lastTime = 0;
+const friction = 0.92;
+
+// === BLOKUJ LOGI 404 ===
+const originalError = console.error;
+console.error = (...args) => {
+    if (args[0] && args[0].includes && args[0].includes('Failed to load')) return;
+    originalError.apply(console, args);
+};
+
+// === ŁADOWANIE TILE'A ===
 function loadTile(tx, ty) {
     const key = `${tx}_${ty}`;
     if (tileCache.has(key)) return Promise.resolve(tileCache.get(key));
+
+    if (Math.abs(tx) > MAX_TILE || Math.abs(ty) > MAX_TILE) {
+        tileCache.set(key, null);
+        return Promise.resolve(null);
+    }
 
     const ext = (Math.abs(tx) <= 5 && Math.abs(ty) <= 5) ? 'png' : 'webp';
     const path = `tiles/0/${tx}_${ty}.${ext}`;
@@ -36,11 +56,14 @@ function loadTile(tx, ty) {
         img.onload = () => {
             tileCache.set(key, img);
             loadedCount++;
-            loadingEl.textContent = `Ładowanie... (${loadedCount} tile'i)`;
+            if (loadedCount >= 5) {
+                loadingEl.style.opacity = '0';
+                setTimeout(() => loadingEl.style.display = 'none', 500);
+            }
             resolve(img);
         };
         img.onerror = () => {
-            tileCache.set(key, null);  // nie ma pliku
+            tileCache.set(key, null);
             resolve(null);
         };
     });
@@ -57,6 +80,7 @@ function getVisibleTiles() {
 
     for (let tx = minTx; tx <= maxTx; tx++) {
         for (let ty = minTy; ty <= maxTy; ty++) {
+            if (Math.abs(tx) > MAX_TILE || Math.abs(ty) > MAX_TILE) continue;
             const x = tx * TILE_SIZE;
             const z = ty * TILE_SIZE;
             tiles.push({ tx, ty, x, z });
@@ -65,24 +89,12 @@ function getVisibleTiles() {
     return tiles;
 }
 
-// === RYSOWANIE (CZARNA DZIURA, ZERO MRUGANIA) ===
+// === RYSOWANIE ===
 async function draw() {
     ctx.imageSmoothingEnabled = false;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Czyścimy TYLKO obszar z tile'ami (nie całe tło!)
     const visible = getVisibleTiles();
-    const buffer = TILE_SIZE * zoom * 2;
-    const minX = viewX * zoom - canvas.width / 2 - buffer + canvas.width / 2;
-    const maxX = viewX * zoom + canvas.width / 2 + buffer + canvas.width / 2;
-    const minY = viewY * zoom - canvas.height / 2 - buffer + canvas.height / 2;
-    const maxY = viewY * zoom + canvas.height / 2 + buffer + canvas.height / 2;
-
-    ctx.clearRect(
-        Math.max(0, minX),
-        Math.max(0, minY),
-        Math.min(canvas.width, maxX - minX),
-        Math.min(canvas.height, maxY - minY)
-    );
 
     for (const t of visible) {
         const screenX = (t.x - viewX) * zoom + canvas.width / 2;
@@ -93,24 +105,18 @@ async function draw() {
         if (img) {
             ctx.drawImage(img, screenX, screenY, size, size);
         }
-        // else → CZARNA DZIURA (nic nie rysujemy)
     }
 
     zoomIndicator.textContent = `x${zoom.toFixed(2)}`;
-
-    if (loadedCount > 0) {
-        loadingEl.style.opacity = '0';
-        setTimeout(() => loadingEl.style.display = 'none', 500);
-    }
 }
 
-// === ZOOM ===
+// === ZOOM (scroll + ctrl) ===
 canvas.addEventListener('wheel', e => {
-    e.preventDefault();
-    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    e.preventDefault(); // blokuje przewijanie strony
+
+    const delta = e.deltaY > 0 ? -1 : 1; // w dół = -0.1, w górę = +0.1
     const step = e.ctrlKey ? CTRL_ZOOM_STEP : ZOOM_STEP;
-    let newZoom = zoom * delta;
-    newZoom = Math.round(newZoom / step) * step;
+    let newZoom = zoom + delta * step;
     newZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, newZoom));
 
     const rect = canvas.getBoundingClientRect();
@@ -121,29 +127,78 @@ canvas.addEventListener('wheel', e => {
 
     zoom = newZoom;
     viewX = wx - (mx - canvas.width / 2) / zoom;
-    viewY = wy - (my - canvas.height, canvas.height / 2) / zoom;
+    viewY = wy - (my - canvas.height / 2) / zoom;
 
     draw();
+}, { passive: false });
+
+// === PAN + FLING ===
+canvas.addEventListener('mousedown', e => {
+    isDragging = true;
+    prevX = e.clientX;
+    prevY = e.clientY;
+    velocityX = 0;
+    velocityY = 0;
+    lastTime = performance.now();
+    canvas.style.cursor = 'grabbing';
 });
 
-// === PAN + POZYCJA ===
-let dragging = false, px = 0, py = 0;
-canvas.addEventListener('mousedown', e => { dragging = true; px = e.clientX; py = e.clientY; });
 canvas.addEventListener('mousemove', e => {
-    if (dragging) {
-        viewX -= (e.clientX - px) / zoom;
-        viewY -= (e.clientY - py) / zoom;
-        px = e.clientX; py = e.clientY;
-        draw();
-    } else {
+    if (!isDragging) {
         const rect = canvas.getBoundingClientRect();
         const x = Math.round((e.clientX - rect.left - canvas.width / 2) / zoom + viewX);
         const z = Math.round((e.clientY - rect.top - canvas.height / 2) / zoom + viewY);
         mousePosEl.textContent = `Pozycja: (${x}, ${z})`;
+        return;
     }
+
+    const now = performance.now();
+    const dt = now - lastTime || 1;
+    lastTime = now;
+
+    const dx = e.clientX - prevX;
+    const dy = e.clientY - prevY;
+
+    viewX -= dx / zoom;
+    viewY -= dy / zoom;
+
+    velocityX = dx / dt * 16.66; // ~60 FPS
+    velocityY = dy / dt * 16.66;
+
+    prevX = e.clientX;
+    prevY = e.clientY;
+
+    draw();
 });
-canvas.addEventListener('mouseup', () => dragging = false);
-canvas.addEventListener('mouseleave', () => dragging = false);
+
+canvas.addEventListener('mouseup', () => {
+    if (!isDragging) return;
+    isDragging = false;
+    canvas.style.cursor = 'grab';
+    requestAnimationFrame(fling);
+});
+
+canvas.addEventListener('mouseleave', () => {
+    isDragging = false;
+    canvas.style.cursor = 'grab';
+});
+
+// === FLING ANIMATION ===
+function fling() {
+    if (Math.abs(velocityX) < 0.5 && Math.abs(velocityY) < 0.5) {
+        draw();
+        return;
+    }
+
+    viewX -= velocityX / zoom;
+    viewY -= velocityY / zoom;
+
+    velocityX *= friction;
+    velocityY *= friction;
+
+    draw();
+    requestAnimationFrame(fling);
+}
 
 // === RESIZE ===
 window.addEventListener('resize', () => {
