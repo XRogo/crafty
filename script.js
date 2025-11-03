@@ -1,226 +1,199 @@
-// === KONFIGURACJA ===
-const TILE_SIZES = [256, 512, 1024, 2048];
-const ZOOM_MIN = 0.05;
-const ZOOM_MAX = 100;
-const MAX_TILE = 34;
-const WORLD_BORDER = 10000;  // ±10 000 bloków
+// === SKALA MAPY ===
+const BLOCKS_PER_TILE = {
+    256: 256,    // 256px = 256 bloków
+    512: 1024,   // 512px = 1024 bloki
+    1024: 4096   // 1024px = 4096 bloków
+};
 
-// === ELEMENTY ===
+const LEVELS = [
+    { size: 1024, folder: 0, minZoom: 0.10, maxZoom: 0.50 },
+    { size: 512,  folder: 1, minZoom: 0.40, maxZoom: 0.60 },
+    { size: 256,  folder: 2, minZoom: 0.60, maxZoom: 2.00 }
+];
+
+const WORLD_SIZE = 10000;
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
-const mousePosEl = document.getElementById('mousePos');
-const loadingEl = document.getElementById('loading');
-const zoomIndicator = document.getElementById('zoomIndicator');
+const info = document.getElementById('info');
+const loading = document.getElementById('loading');
 
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
-
-// === STAN ===
-let viewX = 0, viewY = 0;
 let zoom = 1;
-const tileCache = new Map();
-let loadedCount = 0;
+let viewX = 0, viewY = 0;
+let isDragging = false;
+let lastX, lastY;
+const cache = new Map();
+let loaded = 0;
 
-// === WYBIERZ POZIOM PIRAMIDY ===
+// Resize
+function resize() {
+    canvas.width = innerWidth;
+    canvas.height = innerHeight;
+    draw();
+}
+window.addEventListener('resize', resize);
+resize();
+
+// Aktualny poziom
 function getLevel() {
-    const scale = 256 * zoom;
-    for (let i = 0; i < TILE_SIZES.length; i++) {
-        if (scale <= TILE_SIZES[i]) return i;
+    for (const lvl of LEVELS) {
+        if (zoom >= lvl.minZoom && zoom <= lvl.maxZoom) return lvl;
     }
-    return TILE_SIZES.length - 1;
+    return zoom < 0.4 ? LEVELS[0] : LEVELS[2];
 }
 
-function getTileSize() {
-    return TILE_SIZES[getLevel()];
+// Skala: ile bloków na piksel
+function getBlocksPerPixel() {
+    const level = getLevel();
+    const blocks = BLOCKS_PER_TILE[level.size];
+    const pixels = level.size;
+    return blocks / pixels / zoom;
 }
 
-// === ŁADOWANIE TILE'A ===
-async function loadTile(tx, ty, level) {
-    const key = `${level}_${tx}_${ty}`;
-    if (tileCache.has(key)) return tileCache.get(key);
-
-    if (Math.abs(tx) > MAX_TILE || Math.abs(ty) > MAX_TILE) {
-        tileCache.set(key, null);
-        return null;
-    }
+// Ładuj kafelek
+function loadTile(tx, ty, level) {
+    const key = `${level.folder}_${tx}_${ty}`;
+    if (cache.has(key)) return cache.get(key);
 
     const ext = (Math.abs(tx) <= 1 && Math.abs(ty) <= 1) ? 'png' : 'webp';
-    const path = `tiles/${level}/${tx}_${ty}.${ext}`;
-
     const img = new Image();
-    img.src = path;
+    img.src = `tiles/${level.folder}/${tx}_${ty}.${ext}`;
 
-    return new Promise((resolve) => {
+    const promise = new Promise(resolve => {
         img.onload = () => {
-            tileCache.set(key, img);
-            loadedCount++;
-            if (loadedCount >= 5) {
-                loadingEl.style.opacity = '0';
-                setTimeout(() => loadingEl.style.display = 'none', 500);
+            cache.set(key, img);
+            loaded++;
+            if (loaded > 8) {
+                loading.style.opacity = '0';
+                setTimeout(() => loading.style.display = 'none', 300);
             }
             resolve(img);
         };
         img.onerror = () => {
-            tileCache.set(key, null);
+            cache.set(key, null);
             resolve(null);
         };
     });
+    cache.set(key, promise);
+    return promise;
 }
 
-// === WIDOCZNE TILE'E ===
-function getVisibleTiles() {
-    const level = getLevel();
-    const tileSize = getTileSize();
-    const scale = tileSize / 256;
-    const size = tileSize * zoom / scale;
-
-    const minTx = Math.floor((viewX * zoom - canvas.width / 2) / size) - 1;
-    const maxTx = Math.ceil((viewX * zoom + canvas.width / 2) / size) + 1;
-    const minTy = Math.floor((viewY * zoom - canvas.height / 2) / size) - 1;
-    const maxTy = Math.ceil((viewY * zoom + canvas.height / 2) / size) + 1;
-
-    const tiles = [];
-    for (let tx = minTx; tx <= maxTx; tx++) {
-        for (let ty = minTy; ty <= maxTy; ty++) {
-            if (Math.abs(tx) > MAX_TILE || Math.abs(ty) > MAX_TILE) continue;
-            const x = tx * 256 * scale;
-            const z = ty * 256 * scale;
-            tiles.push({ tx, ty, x, z, level });
-        }
-    }
-    return tiles;
-}
-
-// === RYSOWANIE ===
+// Rysowanie – BEZ PRZESKOKÓW!
 async function draw() {
-    ctx.imageSmoothingEnabled = false;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    const visible = getVisibleTiles();
+    const level = getLevel();
+    const tileSize = level.size;
+    const blocksPerTile = BLOCKS_PER_TILE[tileSize];
+    const pixelsPerBlock = zoom * (tileSize / blocksPerTile);
 
-    for (const t of visible) {
-        const scale = TILE_SIZES[t.level] / 256;
-        const screenX = (t.x - viewX) * zoom + canvas.width / 2;
-        const screenY = (t.z - viewY) * zoom + canvas.height / 2;
-        const size = (TILE_SIZES[t.level] * zoom) / scale;
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
 
-        const img = await loadTile(t.tx, t.ty, t.level);
-        if (img) {
-            ctx.drawImage(img, screenX, screenY, size, size);
+    const leftBlock = viewX - centerX / pixelsPerBlock;
+    const topBlock = viewY - centerY / pixelsPerBlock;
+    const rightBlock = viewX + centerX / pixelsPerBlock;
+    const bottomBlock = viewY + centerY / pixelsPerBlock;
+
+    const startTx = Math.floor(leftBlock / blocksPerTile);
+    const endTx = Math.ceil(rightBlock / blocksPerTile);
+    const startTy = Math.floor(topBlock / blocksPerTile);
+    const endTy = Math.ceil(bottomBlock / blocksPerTile);
+
+    for (let tx = startTx - 1; tx <= endTx + 1; tx++) {
+        for (let ty = startTy - 1; ty <= endTy + 1; ty++) {
+            if (Math.abs(tx) > 50 || Math.abs(ty) > 50) continue;
+
+            const blockX = tx * blocksPerTile;
+            const blockZ = ty * blocksPerTile;
+            const screenX = centerX + (blockX - viewX) * pixelsPerBlock;
+            const screenY = centerY + (blockZ - viewY) * pixelsPerBlock;
+            const screenSize = blocksPerTile * pixelsPerBlock;
+
+            const key = `${level.folder}_${tx}_${ty}`;
+            const cached = cache.get(key);
+
+            if (cached instanceof Promise) {
+                const img = await cached;
+                if (img) ctx.drawImage(img, screenX, screenY, screenSize, screenSize);
+            } else if (cached) {
+                ctx.drawImage(cached, screenX, screenY, screenSize, screenSize);
+            } else {
+                loadTile(tx, ty, level);
+            }
         }
     }
 
-    zoomIndicator.textContent = `x${zoom.toFixed(2)}`;
+    info.textContent = `Zoom: ${zoom.toFixed(2)}x | (${Math.round(viewX)}, ${Math.round(viewY)})`;
 }
 
-// === ZOOM + BORDER ===
+// Zoom – płynny!
 canvas.addEventListener('wheel', e => {
     e.preventDefault();
-    const delta = e.deltaY > 0 ? -1 : 1;
-    const step = e.ctrlKey ? 1 : 0.1;
-    let newZoom = zoom + delta * step;
-    newZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, newZoom));
+    const delta = e.deltaY > 0 ? 0.9 : 1.11;
+    const oldZoom = zoom;
+    zoom = Math.max(0.1, Math.min(2, zoom * delta));
 
     const rect = canvas.getBoundingClientRect();
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
-    const wx = (mx - canvas.width / 2) / zoom + viewX;
-    const wy = (my - canvas.height / 2) / zoom + viewY;
 
-    zoom = newZoom;
-    viewX = wx - (mx - canvas.width / 2) / zoom;
-    viewY = wy - (my - canvas.height / 2) / zoom;
+    const wx = viewX + (mx - canvas.width/2) * (1/pixelsPerBlock(oldZoom) - 1/pixelsPerBlock(zoom));
+    const wy = viewY + (my - canvas.height/2) * (1/pixelsPerBlock(oldZoom) - 1/pixelsPerBlock(zoom));
 
-    // BORDER ±10 000
-    const halfWorld = WORLD_BORDER;
-    viewX = Math.max(-halfWorld, Math.min(halfWorld, viewX));
-    viewY = Math.max(-halfWorld, Math.min(halfWorld, viewY));
+    viewX = wx;
+    viewY = wy;
 
+    clampView();
     draw();
 }, { passive: false });
 
-// === PAN + FLING ===
-let isDragging = false, prevX = 0, prevY = 0, velocityX = 0, velocityY = 0, lastTime = 0;
-const friction = 0.92;
+// Pomocnicza funkcja do starego zoomu
+function pixelsPerBlock(z) {
+    const level = getLevel();
+    const tileSize = level.size;
+    const blocksPerTile = BLOCKS_PER_TILE[tileSize];
+    return z * (tileSize / blocksPerTile);
+}
 
+// Przeciąganie
+let startX, startY, startViewX, startViewY;
 canvas.addEventListener('mousedown', e => {
     isDragging = true;
-    prevX = e.clientX; prevY = e.clientY;
-    velocityX = velocityY = 0;
-    lastTime = performance.now();
+    startX = e.clientX;
+    startY = e.clientY;
+    startViewX = viewX;
+    startViewY = viewY;
     canvas.style.cursor = 'grabbing';
 });
 
-canvas.addEventListener('mousemove', e => {
+window.addEventListener('mousemove', e => {
     if (!isDragging) {
-        const rect = canvas.getBoundingClientRect();
-        const x = Math.round((e.clientX - rect.left - canvas.width / 2) / zoom + viewX);
-        const z = Math.round((e.clientY - rect.top - canvas.height / 2) / zoom + viewY);
-        mousePosEl.textContent = `Pozycja: (${x}, ${z})`;
+        const bpp = pixelsPerBlock(zoom);
+        const wx = viewX + (e.clientX - canvas.width/2) / bpp;
+        const wz = viewY + (e.clientY - canvas.height/2) / bpp;
+        info.textContent = `Zoom: ${zoom.toFixed(2)}x | (${Math.round(wx)}, ${Math.round(wz)})`;
         return;
     }
 
-    const now = performance.now();
-    const dt = now - lastTime || 1;
-    lastTime = now;
-
-    const dx = e.clientX - prevX;
-    const dy = e.clientY - prevY;
-
-    viewX -= dx / zoom;
-    viewY -= dy / zoom;
-
-    velocityX = dx / dt * 16.66;
-    velocityY = dy / dt * 16.66;
-
-    prevX = e.clientX; prevY = e.clientY;
-
-    // BORDER
-    const halfWorld = WORLD_BORDER;
-    viewX = Math.max(-halfWorld, Math.min(halfWorld, viewX));
-    viewY = Math.max(-halfWorld, Math.min(halfWorld, viewY));
-
+    const dx = (e.clientX - startX) / pixelsPerBlock(zoom);
+    const dy = (e.clientY - startY) / pixelsPerBlock(zoom);
+    viewX = startViewX - dx;
+    viewY = startViewY - dy;
+    clampView();
     draw();
 });
 
-canvas.addEventListener('mouseup', () => {
-    if (!isDragging) return;
-    isDragging = false;
-    canvas.style.cursor = 'grab';
-    requestAnimationFrame(fling);
-});
-
-canvas.addEventListener('mouseleave', () => {
+window.addEventListener('mouseup', () => {
     isDragging = false;
     canvas.style.cursor = 'grab';
 });
 
-function fling() {
-    if (Math.abs(velocityX) < 0.5 && Math.abs(velocityY) < 0.5) {
-        draw();
-        return;
-    }
-
-    viewX -= velocityX / zoom;
-    viewY -= velocityY / zoom;
-
-    velocityX *= friction;
-    velocityY *= friction;
-
-    const halfWorld = WORLD_BORDER;
-    viewX = Math.max(-halfWorld, Math.min(halfWorld, viewX));
-    viewY = Math.max(-halfWorld, Math.min(halfWorld, viewY));
-
-    draw();
-    requestAnimationFrame(fling);
+function clampView() {
+    viewX = Math.max(-WORLD_SIZE, Math.min(WORLD_SIZE, viewX));
+    viewY = Math.max(-WORLD_SIZE, Math.min(WORLD_SIZE, viewY));
 }
 
-// === RESIZE ===
-window.addEventListener('resize', () => {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-    draw();
-});
-
-// === START ===
+// START
+canvas.style.cursor = 'grab';
 draw();
