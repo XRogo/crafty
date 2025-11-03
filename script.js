@@ -1,7 +1,7 @@
 // === KONFIGURACJA ===
 const TILE_SIZE = 256;
-const ZOOM_MIN = 0.1;
-const ZOOM_MAX = 50;
+const ZOOM_MIN = 0.05;
+const ZOOM_MAX = 100;
 const ZOOM_STEP = 0.1;
 const CTRL_ZOOM_STEP = 1;
 
@@ -10,6 +10,7 @@ const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 const mousePosEl = document.getElementById('mousePos');
 const loadingEl = document.getElementById('loading');
+const zoomIndicator = document.getElementById('zoomIndicator');
 
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
@@ -17,13 +18,13 @@ canvas.height = window.innerHeight;
 // === STAN ===
 let viewX = 0, viewY = 0;
 let zoom = 1;
-const tileCache = new Map();
+const tileCache = new Map();  // null = nie ma pliku
 let loadedCount = 0;
 
-// === ŁADOWANIE TILE'A ===
-async function loadTile(tx, ty) {
+// === ŁADOWANIE TILE'A (proste, bez HEAD) ===
+function loadTile(tx, ty) {
     const key = `${tx}_${ty}`;
-    if (tileCache.has(key)) return tileCache.get(key);
+    if (tileCache.has(key)) return Promise.resolve(tileCache.get(key));
 
     const ext = (Math.abs(tx) <= 5 && Math.abs(ty) <= 5) ? 'png' : 'webp';
     const path = `tiles/0/${tx}_${ty}.${ext}`;
@@ -39,7 +40,7 @@ async function loadTile(tx, ty) {
             resolve(img);
         };
         img.onerror = () => {
-            tileCache.set(key, null);
+            tileCache.set(key, null);  // nie ma pliku
             resolve(null);
         };
     });
@@ -64,16 +65,24 @@ function getVisibleTiles() {
     return tiles;
 }
 
-// === RYSOWANIE (OSTRE PIKSELE + BIAŁY PLACEHOLDER) ===
+// === RYSOWANIE (CZARNA DZIURA, ZERO MRUGANIA) ===
 async function draw() {
-    // OSTRZE PIKSELE MINECRAFT!
     ctx.imageSmoothingEnabled = false;
-    ctx.imageSmoothingQuality = 'low';
 
-    ctx.fillStyle = '#87CEEB';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
+    // Czyścimy TYLKO obszar z tile'ami (nie całe tło!)
     const visible = getVisibleTiles();
+    const buffer = TILE_SIZE * zoom * 2;
+    const minX = viewX * zoom - canvas.width / 2 - buffer + canvas.width / 2;
+    const maxX = viewX * zoom + canvas.width / 2 + buffer + canvas.width / 2;
+    const minY = viewY * zoom - canvas.height / 2 - buffer + canvas.height / 2;
+    const maxY = viewY * zoom + canvas.height / 2 + buffer + canvas.height / 2;
+
+    ctx.clearRect(
+        Math.max(0, minX),
+        Math.max(0, minY),
+        Math.min(canvas.width, maxX - minX),
+        Math.min(canvas.height, maxY - minY)
+    );
 
     for (const t of visible) {
         const screenX = (t.x - viewX) * zoom + canvas.width / 2;
@@ -83,15 +92,11 @@ async function draw() {
         const img = await loadTile(t.tx, t.ty);
         if (img) {
             ctx.drawImage(img, screenX, screenY, size, size);
-        } else {
-            // BIAŁY #ffffff + szary obrys #dddddd
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(screenX, screenY, size, size);
-            ctx.strokeStyle = '#dddddd';
-            ctx.lineWidth = 1 / zoom;
-            ctx.strokeRect(screenX, screenY, size, size);
         }
+        // else → CZARNA DZIURA (nic nie rysujemy)
     }
+
+    zoomIndicator.textContent = `x${zoom.toFixed(2)}`;
 
     if (loadedCount > 0) {
         loadingEl.style.opacity = '0';
@@ -116,7 +121,7 @@ canvas.addEventListener('wheel', e => {
 
     zoom = newZoom;
     viewX = wx - (mx - canvas.width / 2) / zoom;
-    viewY = wy - (my - canvas.height / 2) / zoom;
+    viewY = wy - (my - canvas.height, canvas.height / 2) / zoom;
 
     draw();
 });
