@@ -3,27 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mapa Serwera MC v4</title>
+    <title>Mapa Serwera MC v5</title>
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
-        body { background:#000; overflow:hidden; font-family:Arial; }
+        body { background:#111; overflow:hidden; font-family:Arial, sans-serif; }
         #map { width:100vw; height:100vh; position:relative; }
         canvas { display:block; image-rendering:pixelated; }
         #info {
             position:absolute; top:10px; left:50%; transform:translateX(-50%);
             background:rgba(0,0,0,0.7); color:#fff; padding:8px 16px;
-            border-radius:8px; font:bold 16px Arial; z-index:10;
+            border-radius:8px; font:bold 16px Arial; z-index:10; pointer-events:none;
         }
         #loading {
             position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
-            background:rgba(0,0,0,0.8); color:#0f0; padding:20px 40px;
-            border-radius:12px; font-size:20px; z-index:100;
+            background:rgba(0,0,0,0.9); color:#0f0; padding:20px 40px;
+            border-radius:12px; font-size:20px; z-index:100; transition:opacity .3s;
         }
     </style>
 </head>
 <body>
     <div id="map">
-        <div id="info">Zoom: 1.00x | Pozycja: (0, 0)</div>
+        <div id="info">Zoom: 1.00x | (0, 0)</div>
         <div id="loading">Ładowanie mapy...</div>
         <canvas id="canvas"></canvas>
     </div>

@@ -1,8 +1,14 @@
-// === SKALA MAPY ===
+/* ==============================================================
+   MAPA MINECRAFT – wersja 6
+   - 100% ostre piksele (bez rozmycia)
+   - skalowanie tylko całkowitymi liczbami
+   - brak migania + preload
+   ============================================================== */
+
 const BLOCKS_PER_TILE = {
-    256: 256,    // 256px = 256 bloków
-    512: 1024,   // 512px = 1024 bloki
-    1024: 4096   // 1024px = 4096 bloków
+    256: 256,
+    512: 1024,
+    1024: 4096
 };
 
 const LEVELS = [
@@ -20,11 +26,16 @@ const loading = document.getElementById('loading');
 let zoom = 1;
 let viewX = 0, viewY = 0;
 let isDragging = false;
-let lastX, lastY;
-const cache = new Map();
-let loaded = 0;
+let startX, startY, startViewX, startViewY;
 
-// Resize
+const cache = new Map();
+let loadedTiles = 0;
+
+// === 1. WYŁĄCZ INTERPOLACJĘ NA 100% ===
+ctx.imageSmoothingEnabled = false;
+canvas.style.imageRendering = 'pixelated';
+
+// === 2. Resize ===
 function resize() {
     canvas.width = innerWidth;
     canvas.height = innerHeight;
@@ -33,7 +44,7 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
-// Aktualny poziom
+// === 3. Poziom zoomu ===
 function getLevel() {
     for (const lvl of LEVELS) {
         if (zoom >= lvl.minZoom && zoom <= lvl.maxZoom) return lvl;
@@ -41,15 +52,18 @@ function getLevel() {
     return zoom < 0.4 ? LEVELS[0] : LEVELS[2];
 }
 
-// Skala: ile bloków na piksel
-function getBlocksPerPixel() {
-    const level = getLevel();
-    const blocks = BLOCKS_PER_TILE[level.size];
-    const pixels = level.size;
-    return blocks / pixels / zoom;
+// === 4. Skalowanie TYLKO całkowitymi pikselami ===
+function getPixelScale() {
+    const lvl = getLevel();
+    const baseScale = zoom * (lvl.size / BLOCKS_PER_TILE[lvl.size]); // ile px na blok
+    const tilePixelSize = BLOCKS_PER_TILE[lvl.size] * baseScale;   // rozmiar kafelka w px
+
+    // Zaokrąglij do najbliższej potęgi 2 lub całkowitej liczby
+    const scale = Math.round(tilePixelSize) / BLOCKS_PER_TILE[lvl.size];
+    return { scale, tilePixelSize: Math.round(tilePixelSize) };
 }
 
-// Ładuj kafelek
+// === 5. Ładuj kafelek ===
 function loadTile(tx, ty, level) {
     const key = `${level.folder}_${tx}_${ty}`;
     if (cache.has(key)) return cache.get(key);
@@ -61,8 +75,8 @@ function loadTile(tx, ty, level) {
     const promise = new Promise(resolve => {
         img.onload = () => {
             cache.set(key, img);
-            loaded++;
-            if (loaded > 8) {
+            loadedTiles++;
+            if (loadedTiles > 8) {
                 loading.style.opacity = '0';
                 setTimeout(() => loading.style.display = 'none', 300);
             }
@@ -73,91 +87,106 @@ function loadTile(tx, ty, level) {
             resolve(null);
         };
     });
+
     cache.set(key, promise);
     return promise;
 }
 
-// Rysowanie – BEZ PRZESKOKÓW!
-async function draw() {
-    ctx.fillStyle = '#000';
+// === 6. RYSOWANIE – OSTRE, BEZ ROZMYCIA ===
+function draw() {
+    ctx.fillStyle = '#111';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     const level = getLevel();
-    const tileSize = level.size;
-    const blocksPerTile = BLOCKS_PER_TILE[tileSize];
-    const pixelsPerBlock = zoom * (tileSize / blocksPerTile);
+    const blocksPerTile = BLOCKS_PER_TILE[level.size];
+    const { scale: ppb, tilePixelSize } = getPixelScale(); // ppb = pixels per block
 
     const centerX = canvas.width / 2;
     const centerY = canvas.height / 2;
 
-    const leftBlock = viewX - centerX / pixelsPerBlock;
-    const topBlock = viewY - centerY / pixelsPerBlock;
-    const rightBlock = viewX + centerX / pixelsPerBlock;
-    const bottomBlock = viewY + centerY / pixelsPerBlock;
+    // Widoczny obszar w blokach
+    const leftBlock   = viewX - centerX / ppb;
+    const topBlock    = viewY - centerY / ppb;
+    const rightBlock  = viewX + centerX / ppb;
+    const bottomBlock = viewY + centerY / ppb;
 
     const startTx = Math.floor(leftBlock / blocksPerTile);
-    const endTx = Math.ceil(rightBlock / blocksPerTile);
+    const endTx   = Math.ceil(rightBlock / blocksPerTile);
     const startTy = Math.floor(topBlock / blocksPerTile);
-    const endTy = Math.ceil(bottomBlock / blocksPerTile);
+    const endTy   = Math.ceil(bottomBlock / blocksPerTile);
 
+    // Rysuj tylko gotowe kafelki
     for (let tx = startTx - 1; tx <= endTx + 1; tx++) {
         for (let ty = startTy - 1; ty <= endTy + 1; ty++) {
             if (Math.abs(tx) > 50 || Math.abs(ty) > 50) continue;
 
-            const blockX = tx * blocksPerTile;
-            const blockZ = ty * blocksPerTile;
-            const screenX = centerX + (blockX - viewX) * pixelsPerBlock;
-            const screenY = centerY + (blockZ - viewY) * pixelsPerBlock;
-            const screenSize = blocksPerTile * pixelsPerBlock;
-
             const key = `${level.folder}_${tx}_${ty}`;
             const cached = cache.get(key);
 
-            if (cached instanceof Promise) {
-                const img = await cached;
-                if (img) ctx.drawImage(img, screenX, screenY, screenSize, screenSize);
-            } else if (cached) {
-                ctx.drawImage(cached, screenX, screenY, screenSize, screenSize);
-            } else {
+            if (cached && !(cached instanceof Promise) && cached) {
+                const blockX = tx * blocksPerTile;
+                const blockZ = ty * blocksPerTile;
+
+                // Pozycja na ekranie – zaokrąglona do piksela
+                const screenX = Math.round(centerX + (blockX - viewX) * ppb);
+                const screenY = Math.round(centerY + (blockZ - viewY) * ppb);
+
+                // Rozmiar kafelka – całkowita liczba pikseli
+                ctx.drawImage(cached, screenX, screenY, tilePixelSize, tilePixelSize);
+            } else if (!cached) {
                 loadTile(tx, ty, level);
             }
         }
     }
 
+    // Preload
+    const PRELOAD = 2;
+    for (let tx = startTx - PRELOAD; tx <= endTx + PRELOAD; tx++) {
+        for (let ty = startTy - PRELOAD; ty <= endTy + PRELOAD; ty++) {
+            if (Math.abs(tx) > 55 || Math.abs(ty) > 55) continue;
+            const key = `${level.folder}_${tx}_${ty}`;
+            if (!cache.has(key)) loadTile(tx, ty, level);
+        }
+    }
+
+    // Info
     info.textContent = `Zoom: ${zoom.toFixed(2)}x | (${Math.round(viewX)}, ${Math.round(viewY)})`;
 }
 
-// Zoom – płynny!
+// === 7. ZOOM – z zachowaniem ostrości ===
 canvas.addEventListener('wheel', e => {
     e.preventDefault();
-    const delta = e.deltaY > 0 ? 0.9 : 1.11;
-    const oldZoom = zoom;
-    zoom = Math.max(0.1, Math.min(2, zoom * delta));
 
     const rect = canvas.getBoundingClientRect();
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
 
-    const wx = viewX + (mx - canvas.width/2) * (1/pixelsPerBlock(oldZoom) - 1/pixelsPerBlock(zoom));
-    const wy = viewY + (my - canvas.height/2) * (1/pixelsPerBlock(oldZoom) - 1/pixelsPerBlock(zoom));
+    const oldScale = getPixelScale();
+    const oldPpb = oldScale.scale;
 
-    viewX = wx;
-    viewY = wy;
+    const worldX = viewX + (mx - canvas.width/2) / oldPpb;
+    const worldZ = viewY + (my - canvas.height/2) / oldPpb;
+
+    let newZoom;
+    if (e.ctrlKey) {
+        newZoom = zoom + (e.deltaY > 0 ? -1 : 1);
+    } else {
+        const dir = e.deltaY > 0 ? -1 : 1;
+        newZoom = Math.round(zoom * 10 + dir) / 10;
+    }
+
+    newZoom = Math.max(0.1, Math.min(50, newZoom));
+    zoom = newZoom;
+
+    const newScale = getPixelScale();
+    viewX = worldX - (mx - canvas.width/2) / newScale.scale;
+    viewY = worldZ - (my - canvas.height/2) / newScale.scale;
 
     clampView();
     draw();
 }, { passive: false });
 
-// Pomocnicza funkcja do starego zoomu
-function pixelsPerBlock(z) {
-    const level = getLevel();
-    const tileSize = level.size;
-    const blocksPerTile = BLOCKS_PER_TILE[tileSize];
-    return z * (tileSize / blocksPerTile);
-}
-
-// Przeciąganie
-let startX, startY, startViewX, startViewY;
+// === 8. DRAG ===
 canvas.addEventListener('mousedown', e => {
     isDragging = true;
     startX = e.clientX;
@@ -169,15 +198,16 @@ canvas.addEventListener('mousedown', e => {
 
 window.addEventListener('mousemove', e => {
     if (!isDragging) {
-        const bpp = pixelsPerBlock(zoom);
-        const wx = viewX + (e.clientX - canvas.width/2) / bpp;
-        const wz = viewY + (e.clientY - canvas.height/2) / bpp;
+        const scale = getPixelScale().scale;
+        const wx = viewX + (e.clientX - canvas.width/2) / scale;
+        const wz = viewY + (e.clientY - canvas.height/2) / scale;
         info.textContent = `Zoom: ${zoom.toFixed(2)}x | (${Math.round(wx)}, ${Math.round(wz)})`;
         return;
     }
 
-    const dx = (e.clientX - startX) / pixelsPerBlock(zoom);
-    const dy = (e.clientY - startY) / pixelsPerBlock(zoom);
+    const scale = getPixelScale().scale;
+    const dx = (e.clientX - startX) / scale;
+    const dy = (e.clientY - startY) / scale;
     viewX = startViewX - dx;
     viewY = startViewY - dy;
     clampView();
@@ -194,6 +224,6 @@ function clampView() {
     viewY = Math.max(-WORLD_SIZE, Math.min(WORLD_SIZE, viewY));
 }
 
-// START
+// === 9. START ===
 canvas.style.cursor = 'grab';
 draw();
