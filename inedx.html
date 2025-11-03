@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapa Serwera MC</title>
+    <style>
+        * { margin: 0; padding: 0; }
+        body { background: #111; overflow: hidden; font-family: Arial, sans-serif; }
+        #map { position: relative; width: 100vw; height: 100vh; }
+        #canvas { display: block; background: #87CEEB; cursor: grab; }
+        #canvas:active { cursor: grabbing; }
+        #mousePos {
+            position: absolute;
+            top: 15px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.7); color: white;
+            padding: 8px 16px; border-radius: 8px;
+            font: bold 18px Arial; z-index: 100;
+            pointer-events: none;
+        }
+        #loading {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            color: white; font-size: 20px; z-index: 50;
+            background: rgba(0,0,0,0.6); padding: 15px 25px;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="map">
+        <div id="mousePos">Pozycja: (0, 0)</div>
+        <div id="loading">Ładowanie mapy... (0 tile'i)</div>
+        <canvas id="canvas"></canvas>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
