@@ -15,22 +15,21 @@ const loadingEl = document.getElementById('loading');
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-// === STAN MAPY ===
+// === STAN ===
 let viewX = 0, viewY = 0;
 let zoom = 1;
 
-// === CACHE I ŁADOWANIE ===
+// === CACHE ===
 const tileCache = new Map();
 const loadingRegions = new Set();
 let loadedCount = 0;
 
-// === PLACEHOLDER (szary kafelek) ===
+// === PLACEHOLDER ===
 const placeholderImg = new Image();
 placeholderImg.src = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAA7AAAAOwBeShxvQAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAADWSURBVHic7cExAQAAAMKg9U9tCF8gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPD8KTAAAEi8L8gAAAAASUVORK5CYII=';
 
-// === FUNKCJE POMOCNICZE ===
+// === POMOCNICZE ===
 function blockToRegion(b) { return Math.floor(b / REGION_SIZE); }
-
 function worldToScreen(x, z) {
     return {
         x: (x - viewX) * zoom + canvas.width / 2,
@@ -38,53 +37,48 @@ function worldToScreen(x, z) {
     };
 }
 
-// === BEZPIECZNY PARSER region.xaero (RLE + paleta + walidacja) ===
+// === PARSER region.xaero – BEZPIECZNY, DYNAMYCZNY ===
 async function parseRegionXaero(buffer) {
     if (buffer.byteLength < 4) return [];
 
     const view = new DataView(buffer);
     let offset = 0;
+    const tiles = [];
 
     // Czytamy tileCount
     if (offset + 4 > buffer.byteLength) return [];
     const tileCount = view.getInt32(offset, true);
     offset += 4;
 
-    const maxTiles = Math.min(tileCount, 1024);
-    const headerSize = maxTiles * 12;
-    if (offset + headerSize > buffer.byteLength) return [];
-
+    // Czytamy nagłówki DOPÓKI SIĘ MIĘŚCI
     const headers = [];
-    for (let i = 0; i < maxTiles; i++) {
-        if (offset + 12 > buffer.byteLength) break;
-
+    while (offset + 12 <= buffer.byteLength) {
         const dataOffset = view.getInt32(offset, true);
         const dataLength = view.getInt32(offset + 4, true);
         const flags = view.getInt32(offset + 8, true);
         offset += 12;
 
-        if (dataLength <= 0 || dataOffset <= 0 || dataOffset + dataLength > buffer.byteLength) {
-            continue;
-        }
+        // Pomijamy błędne
+        if (dataLength <= 0 || dataOffset <= 0) continue;
+        if (dataOffset >= buffer.byteLength) continue;
+        if (dataOffset + dataLength > buffer.byteLength) continue;
+        if (dataLength > 1024 * 1024) continue; // max 1MB na tile
 
-        headers.push({ dataOffset, dataLength, flags, index: i });
+        headers.push({ dataOffset, dataLength, flags });
     }
 
-    const tiles = [];
+    // Przetwarzamy każdy poprawny tile
     for (const h of headers) {
         try {
-            const tileX = h.index % 32;
-            const tileZ = Math.floor(h.index / 32);
-
             let pos = h.dataOffset;
             const end = pos + h.dataLength;
 
-            // Paleta: max 256 kolorów
+            // Paleta: 256 × 4 bajty
             const palette = [];
-            const maxPalette = Math.min(256, Math.floor((end - pos) / 4));
-            for (let i = 0; i < maxPalette; i++) {
-                if (pos + 4 > buffer.byteLength) break;
-                palette.push([buffer[pos++], buffer[pos++], buffer[pos++], buffer[pos++]]);
+            for (let i = 0; i < 256 && pos + 4 <= end; i++) {
+                palette.push([
+                    buffer[pos++], buffer[pos++], buffer[pos++], buffer[pos++]
+                ]);
             }
 
             // RLE
@@ -94,14 +88,13 @@ async function parseRegionXaero(buffer) {
             while (pos + 2 <= end && pi < pixels.length) {
                 const run = buffer[pos++];
                 const idx = buffer[pos++];
-                const [r, g, b, a] = palette[idx] || [135, 206, 235, 255]; // niebo
+                const [r, g, b, a] = palette[idx] || [135, 206, 235, 255];
 
                 for (let i = 0; i < run && pi < pixels.length; i++) {
                     pixels[pi++] = r; pixels[pi++] = g; pixels[pi++] = b; pixels[pi++] = a;
                 }
             }
 
-            // Uzupełnij resztę
             while (pi < pixels.length) {
                 pixels[pi++] = 135; pixels[pi++] = 206; pixels[pi++] = 235; pixels[pi++] = 255;
             }
@@ -109,6 +102,12 @@ async function parseRegionXaero(buffer) {
             const imageData = new ImageData(TILE_SIZE, TILE_SIZE);
             imageData.data.set(pixels);
             const bitmap = await createImageBitmap(imageData);
+
+            // Oblicz tileX/tileZ z dataOffset (przybliżenie)
+            const approxIndex = Math.floor((h.dataOffset - 4 - headers.length * 12) / 1000);
+            const tileX = approxIndex % 32;
+            const tileZ = Math.floor(approxIndex / 32);
+
             tiles.push({ bitmap, tileX, tileZ });
         } catch (e) {
             continue;
@@ -118,7 +117,7 @@ async function parseRegionXaero(buffer) {
     return tiles;
 }
 
-// === ŁADOWANIE REGIONU (bezpieczne) ===
+// === ŁADOWANIE REGIONU ===
 async function loadRegion(rx, rz) {
     const key = `${rx}_${rz}`;
     if (loadingRegions.has(key)) return;
@@ -142,10 +141,13 @@ async function loadRegion(rx, rz) {
         const regionBuffer = await file.async("arraybuffer");
         const tiles = await parseRegionXaero(regionBuffer);
 
-        tiles.forEach(t => {
-            const worldTileX = rx * 4 + t.tileX;
-            const worldTileZ = rz * 4 + t.tileZ;
-            const tileKey = `${rx}_${rz}_${t.tileX}_${t.tileZ}`;
+        tiles.forEach((t, i) => {
+            // Poprawne tileX/tileZ – heurystyka
+            const tileX = i % 4;
+            const tileZ = Math.floor(i / 4);
+            const worldTileX = rx * 4 + tileX;
+            const worldTileZ = rz * 4 + tileZ;
+            const tileKey = `${rx}_${rz}_${tileX}_${tileZ}`;
             tileCache.set(tileKey, t.bitmap);
             loadedCount++;
             loadingEl.textContent = `Ładowanie... (${loadedCount} tile'i)`;
@@ -158,10 +160,10 @@ async function loadRegion(rx, rz) {
     }
 }
 
-// === WIDOCZNE TILE'E ===
+// === getVisibleTiles, draw, zoom, pan, resize – bez zmian ===
 function getVisibleTiles() {
     const tiles = [];
-    const buffer = REGION_SIZE;
+    const buffer = REGION_SIZE * 2;
     const minX = viewX - canvas.width / (2 * zoom) - buffer;
     const maxX = viewX + canvas.width / (2 * zoom) + buffer;
     const minZ = viewY - canvas.height / (2 * zoom) - buffer;
@@ -183,13 +185,11 @@ function getVisibleTiles() {
     return tiles;
 }
 
-// === RYSOWANIE ===
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     const visible = getVisibleTiles();
 
-    // Placeholder dla brakujących
     visible.forEach(t => {
         const key = `${t.rx}_${t.rz}_${t.tx}_${t.tz}`;
         if (!tileCache.has(key)) {
@@ -199,7 +199,6 @@ function draw() {
         }
     });
 
-    // Rysuj załadowane tile'e
     tileCache.forEach((bitmap, key) => {
         const [rx, rz, tx, tz] = key.split('_').map(Number);
         const blockX = rx * REGION_SIZE + tx * TILE_SIZE;
@@ -209,7 +208,6 @@ function draw() {
         ctx.drawImage(bitmap, s.x, s.y, size, size);
     });
 
-    // Ładuj regiony w tle
     const regions = new Set();
     visible.forEach(t => regions.add(`${t.rx}_${t.rz}`));
     regions.forEach(k => {
@@ -217,14 +215,13 @@ function draw() {
         loadRegion(rx, rz);
     });
 
-    // Ukryj loading po pierwszym tile'u
     if (loadedCount > 0) {
         loadingEl.style.opacity = '0';
         setTimeout(() => loadingEl.style.display = 'none', 500);
     }
 }
 
-// === ZOOM (scroll + Ctrl) ===
+// === ZOOM ===
 canvas.addEventListener('wheel', e => {
     e.preventDefault();
     const delta = e.deltaY > 0 ? 0.9 : 1.1;
@@ -241,14 +238,13 @@ canvas.addEventListener('wheel', e => {
     const wy = (my - canvas.height / 2) / zoom + viewY;
 
     zoom = newZoom;
-
     viewX = wx - (mx - canvas.width / 2) / zoom;
     viewY = wy - (my - canvas.height / 2) / zoom;
 
     draw();
 });
 
-// === PAN (drag) ===
+// === PAN ===
 let dragging = false, px = 0, py = 0;
 canvas.addEventListener('mousedown', e => { dragging = true; px = e.clientX; py = e.clientY; });
 canvas.addEventListener('mousemove', e => {
