@@ -1,10 +1,9 @@
 // === KONFIGURACJA ===
-const TILE_SIZE = 256;
+const TILE_SIZES = [256, 512, 1024, 2048];
 const ZOOM_MIN = 0.05;
 const ZOOM_MAX = 100;
-const ZOOM_STEP = 0.1;
-const CTRL_ZOOM_STEP = 1;
 const MAX_TILE = 34;
+const WORLD_BORDER = 10000;  // ±10 000 bloków
 
 // === ELEMENTY ===
 const canvas = document.getElementById('canvas');
@@ -22,32 +21,31 @@ let zoom = 1;
 const tileCache = new Map();
 let loadedCount = 0;
 
-// === FLING (rzut) ===
-let isDragging = false;
-let prevX = 0, prevY = 0;
-let velocityX = 0, velocityY = 0;
-let lastTime = 0;
-const friction = 0.92;
+// === WYBIERZ POZIOM PIRAMIDY ===
+function getLevel() {
+    const scale = 256 * zoom;
+    for (let i = 0; i < TILE_SIZES.length; i++) {
+        if (scale <= TILE_SIZES[i]) return i;
+    }
+    return TILE_SIZES.length - 1;
+}
 
-// === BLOKUJ LOGI 404 ===
-const originalError = console.error;
-console.error = (...args) => {
-    if (args[0] && args[0].includes && args[0].includes('Failed to load')) return;
-    originalError.apply(console, args);
-};
+function getTileSize() {
+    return TILE_SIZES[getLevel()];
+}
 
 // === ŁADOWANIE TILE'A ===
-function loadTile(tx, ty) {
-    const key = `${tx}_${ty}`;
-    if (tileCache.has(key)) return Promise.resolve(tileCache.get(key));
+async function loadTile(tx, ty, level) {
+    const key = `${level}_${tx}_${ty}`;
+    if (tileCache.has(key)) return tileCache.get(key);
 
     if (Math.abs(tx) > MAX_TILE || Math.abs(ty) > MAX_TILE) {
         tileCache.set(key, null);
-        return Promise.resolve(null);
+        return null;
     }
 
-    const ext = (Math.abs(tx) <= 5 && Math.abs(ty) <= 5) ? 'png' : 'webp';
-    const path = `tiles/0/${tx}_${ty}.${ext}`;
+    const ext = (Math.abs(tx) <= 1 && Math.abs(ty) <= 1) ? 'png' : 'webp';
+    const path = `tiles/${level}/${tx}_${ty}.${ext}`;
 
     const img = new Image();
     img.src = path;
@@ -71,19 +69,23 @@ function loadTile(tx, ty) {
 
 // === WIDOCZNE TILE'E ===
 function getVisibleTiles() {
-    const tiles = [];
-    const size = TILE_SIZE * zoom;
+    const level = getLevel();
+    const tileSize = getTileSize();
+    const scale = tileSize / 256;
+    const size = tileSize * zoom / scale;
+
     const minTx = Math.floor((viewX * zoom - canvas.width / 2) / size) - 1;
     const maxTx = Math.ceil((viewX * zoom + canvas.width / 2) / size) + 1;
     const minTy = Math.floor((viewY * zoom - canvas.height / 2) / size) - 1;
     const maxTy = Math.ceil((viewY * zoom + canvas.height / 2) / size) + 1;
 
+    const tiles = [];
     for (let tx = minTx; tx <= maxTx; tx++) {
         for (let ty = minTy; ty <= maxTy; ty++) {
             if (Math.abs(tx) > MAX_TILE || Math.abs(ty) > MAX_TILE) continue;
-            const x = tx * TILE_SIZE;
-            const z = ty * TILE_SIZE;
-            tiles.push({ tx, ty, x, z });
+            const x = tx * 256 * scale;
+            const z = ty * 256 * scale;
+            tiles.push({ tx, ty, x, z, level });
         }
     }
     return tiles;
@@ -97,11 +99,12 @@ async function draw() {
     const visible = getVisibleTiles();
 
     for (const t of visible) {
+        const scale = TILE_SIZES[t.level] / 256;
         const screenX = (t.x - viewX) * zoom + canvas.width / 2;
         const screenY = (t.z - viewY) * zoom + canvas.height / 2;
-        const size = TILE_SIZE * zoom;
+        const size = (TILE_SIZES[t.level] * zoom) / scale;
 
-        const img = await loadTile(t.tx, t.ty);
+        const img = await loadTile(t.tx, t.ty, t.level);
         if (img) {
             ctx.drawImage(img, screenX, screenY, size, size);
         }
@@ -110,12 +113,11 @@ async function draw() {
     zoomIndicator.textContent = `x${zoom.toFixed(2)}`;
 }
 
-// === ZOOM (scroll + ctrl) ===
+// === ZOOM + BORDER ===
 canvas.addEventListener('wheel', e => {
-    e.preventDefault(); // blokuje przewijanie strony
-
-    const delta = e.deltaY > 0 ? -1 : 1; // w dół = -0.1, w górę = +0.1
-    const step = e.ctrlKey ? CTRL_ZOOM_STEP : ZOOM_STEP;
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -1 : 1;
+    const step = e.ctrlKey ? 1 : 0.1;
     let newZoom = zoom + delta * step;
     newZoom = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, newZoom));
 
@@ -129,16 +131,22 @@ canvas.addEventListener('wheel', e => {
     viewX = wx - (mx - canvas.width / 2) / zoom;
     viewY = wy - (my - canvas.height / 2) / zoom;
 
+    // BORDER ±10 000
+    const halfWorld = WORLD_BORDER;
+    viewX = Math.max(-halfWorld, Math.min(halfWorld, viewX));
+    viewY = Math.max(-halfWorld, Math.min(halfWorld, viewY));
+
     draw();
 }, { passive: false });
 
 // === PAN + FLING ===
+let isDragging = false, prevX = 0, prevY = 0, velocityX = 0, velocityY = 0, lastTime = 0;
+const friction = 0.92;
+
 canvas.addEventListener('mousedown', e => {
     isDragging = true;
-    prevX = e.clientX;
-    prevY = e.clientY;
-    velocityX = 0;
-    velocityY = 0;
+    prevX = e.clientX; prevY = e.clientY;
+    velocityX = velocityY = 0;
     lastTime = performance.now();
     canvas.style.cursor = 'grabbing';
 });
@@ -162,11 +170,15 @@ canvas.addEventListener('mousemove', e => {
     viewX -= dx / zoom;
     viewY -= dy / zoom;
 
-    velocityX = dx / dt * 16.66; // ~60 FPS
+    velocityX = dx / dt * 16.66;
     velocityY = dy / dt * 16.66;
 
-    prevX = e.clientX;
-    prevY = e.clientY;
+    prevX = e.clientX; prevY = e.clientY;
+
+    // BORDER
+    const halfWorld = WORLD_BORDER;
+    viewX = Math.max(-halfWorld, Math.min(halfWorld, viewX));
+    viewY = Math.max(-halfWorld, Math.min(halfWorld, viewY));
 
     draw();
 });
@@ -183,7 +195,6 @@ canvas.addEventListener('mouseleave', () => {
     canvas.style.cursor = 'grab';
 });
 
-// === FLING ANIMATION ===
 function fling() {
     if (Math.abs(velocityX) < 0.5 && Math.abs(velocityY) < 0.5) {
         draw();
@@ -195,6 +206,10 @@ function fling() {
 
     velocityX *= friction;
     velocityY *= friction;
+
+    const halfWorld = WORLD_BORDER;
+    viewX = Math.max(-halfWorld, Math.min(halfWorld, viewX));
+    viewY = Math.max(-halfWorld, Math.min(halfWorld, viewY));
 
     draw();
     requestAnimationFrame(fling);
