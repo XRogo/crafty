@@ -1,16 +1,11 @@
 /* ==============================================================
-   MAPA MINECRAFT – wersja 6
-   - 100% ostre piksele (bez rozmycia)
-   - skalowanie tylko całkowitymi liczbami
-   - brak migania + preload
+   MAPA MINECRAFT v7 – RAZOR SHARP PIXEL EDITION
+   - 100% ostre piksele na każdym ekranie
+   - zero subpikseli, zero blur
+   - devicePixelRatio + pixel-perfect + crisp-edges
    ============================================================== */
 
-const BLOCKS_PER_TILE = {
-    256: 256,
-    512: 1024,
-    1024: 4096
-};
-
+const BLOCKS_PER_TILE = { 256: 256, 512: 1024, 1024: 4096 };
 const LEVELS = [
     { size: 1024, folder: 0, minZoom: 0.10, maxZoom: 0.50 },
     { size: 512,  folder: 1, minZoom: 0.40, maxZoom: 0.60 },
@@ -27,24 +22,37 @@ let zoom = 1;
 let viewX = 0, viewY = 0;
 let isDragging = false;
 let startX, startY, startViewX, startViewY;
+let pixelRatio = 1;
 
 const cache = new Map();
 let loadedTiles = 0;
 
-// === 1. WYŁĄCZ INTERPOLACJĘ NA 100% ===
-ctx.imageSmoothingEnabled = false;
-canvas.style.imageRendering = 'pixelated';
+// === 1. WYŁĄCZ WSZYSTKO CO ROZMYWA ===
+function disableSmoothing() {
+    ctx.imageSmoothingEnabled = false;
+    ctx.mozImageSmoothingEnabled = false;
+    ctx.webkitImageSmoothingEnabled = false;
+    ctx.msImageSmoothingEnabled = false;
+    ctx.imageSmoothingQuality = 'low';
+}
+disableSmoothing();
 
-// === 2. Resize ===
+// === 2. RESIZE Z PIXEL RATIO ===
 function resize() {
-    canvas.width = innerWidth;
-    canvas.height = innerHeight;
+    pixelRatio = window.devicePixelRatio || 1;
+
+    canvas.width = Math.round(innerWidth * pixelRatio);
+    canvas.height = Math.round(innerHeight * pixelRatio);
+    canvas.style.width = innerWidth + 'px';
+    canvas.style.height = innerHeight + 'px';
+
+    disableSmoothing();
     draw();
 }
 window.addEventListener('resize', resize);
 resize();
 
-// === 3. Poziom zoomu ===
+// === 3. POZIOM ZOOMU ===
 function getLevel() {
     for (const lvl of LEVELS) {
         if (zoom >= lvl.minZoom && zoom <= lvl.maxZoom) return lvl;
@@ -52,18 +60,17 @@ function getLevel() {
     return zoom < 0.4 ? LEVELS[0] : LEVELS[2];
 }
 
-// === 4. Skalowanie TYLKO całkowitymi pikselami ===
+// === 4. SKALOWANIE TYLKO CAŁKOWITE ===
 function getPixelScale() {
     const lvl = getLevel();
-    const baseScale = zoom * (lvl.size / BLOCKS_PER_TILE[lvl.size]); // ile px na blok
-    const tilePixelSize = BLOCKS_PER_TILE[lvl.size] * baseScale;   // rozmiar kafelka w px
-
-    // Zaokrąglij do najbliższej potęgi 2 lub całkowitej liczby
-    const scale = Math.round(tilePixelSize) / BLOCKS_PER_TILE[lvl.size];
-    return { scale, tilePixelSize: Math.round(tilePixelSize) };
+    const blocksPerTile = BLOCKS_PER_TILE[lvl.size];
+    const ideal = zoom * (lvl.size / blocksPerTile);
+    const tilePixelSize = Math.round(ideal * blocksPerTile);
+    const scale = tilePixelSize / blocksPerTile;
+    return { scale, tilePixelSize };
 }
 
-// === 5. Ładuj kafelek ===
+// === 5. ŁADOWANIE KAFELKÓW ===
 function loadTile(tx, ty, level) {
     const key = `${level.folder}_${tx}_${ty}`;
     if (cache.has(key)) return cache.get(key);
@@ -78,33 +85,33 @@ function loadTile(tx, ty, level) {
             loadedTiles++;
             if (loadedTiles > 8) {
                 loading.style.opacity = '0';
-                setTimeout(() => loading.style.display = 'none', 300);
+                setTimeout(() => loading.style.display = 'none', 500);
             }
             resolve(img);
         };
-        img.onerror = () => {
-            cache.set(key, null);
-            resolve(null);
-        };
+        img.onerror = () => { cache.set(key, null); resolve(null); };
     });
 
     cache.set(key, promise);
     return promise;
 }
 
-// === 6. RYSOWANIE – OSTRE, BEZ ROZMYCIA ===
+// === 6. RYSOWANIE – RAZOR SHARP ===
 function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = '#111';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+    ctx.save();
+    ctx.scale(pixelRatio, pixelRatio);
+
     const level = getLevel();
     const blocksPerTile = BLOCKS_PER_TILE[level.size];
-    const { scale: ppb, tilePixelSize } = getPixelScale(); // ppb = pixels per block
+    const { scale: ppb, tilePixelSize } = getPixelScale();
 
-    const centerX = canvas.width / 2;
-    const centerY = canvas.height / 2;
+    const centerX = innerWidth / 2;
+    const centerY = innerHeight / 2;
 
-    // Widoczny obszar w blokach
     const leftBlock   = viewX - centerX / ppb;
     const topBlock    = viewY - centerY / ppb;
     const rightBlock  = viewX + centerX / ppb;
@@ -115,7 +122,6 @@ function draw() {
     const startTy = Math.floor(topBlock / blocksPerTile);
     const endTy   = Math.ceil(bottomBlock / blocksPerTile);
 
-    // Rysuj tylko gotowe kafelki
     for (let tx = startTx - 1; tx <= endTx + 1; tx++) {
         for (let ty = startTy - 1; ty <= endTy + 1; ty++) {
             if (Math.abs(tx) > 50 || Math.abs(ty) > 50) continue;
@@ -127,19 +133,25 @@ function draw() {
                 const blockX = tx * blocksPerTile;
                 const blockZ = ty * blocksPerTile;
 
-                // Pozycja na ekranie – zaokrąglona do piksela
-                const screenX = Math.round(centerX + (blockX - viewX) * ppb);
-                const screenY = Math.round(centerY + (blockZ - viewY) * ppb);
+                // PIXEL-PERFECT POZYCJA
+                const rawX = centerX + (blockX - viewX) * ppb;
+                const rawY = centerY + (blockZ - viewY) * ppb;
 
-                // Rozmiar kafelka – całkowita liczba pikseli
-                ctx.drawImage(cached, screenX, screenY, tilePixelSize, tilePixelSize);
+                const screenX = Math.round(rawX * 10) / 10;
+                const screenY = Math.round(rawY * 10) / 10;
+
+                // RYSUJ Z ZAOKRĄGLONYMI ROZMIARAMI
+                const drawW = Math.round(tilePixelSize * 10) / 10;
+                const drawH = drawW;
+
+                ctx.drawImage(cached, screenX, screenY, drawW, drawH);
             } else if (!cached) {
                 loadTile(tx, ty, level);
             }
         }
     }
 
-    // Preload
+    // PRELOAD
     const PRELOAD = 2;
     for (let tx = startTx - PRELOAD; tx <= endTx + PRELOAD; tx++) {
         for (let ty = startTy - PRELOAD; ty <= endTy + PRELOAD; ty++) {
@@ -149,69 +161,60 @@ function draw() {
         }
     }
 
-    // Info
-    info.textContent = `Zoom: ${zoom.toFixed(2)}x | (${Math.round(viewX)}, ${Math.round(viewY)})`;
+    ctx.restore();
+
+    // INFO
+    const mx = innerWidth / 2;
+    const my = innerHeight / 2;
+    const wx = viewX + (mx - mx) / ppb;
+    const wz = viewY + (my - my) / ppb;
+    info.textContent = `Zoom: ${zoom.toFixed(2)}x | (${Math.round(wx)}, ${Math.round(wz)}) | DPI: ${pixelRatio.toFixed(2)}`;
 }
 
-// === 7. ZOOM – z zachowaniem ostrości ===
+// === ZOOM ===
 canvas.addEventListener('wheel', e => {
     e.preventDefault();
-
     const rect = canvas.getBoundingClientRect();
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
 
-    const oldScale = getPixelScale();
-    const oldPpb = oldScale.scale;
+    const oldPpb = getPixelScale().scale;
+    const worldX = viewX + (mx - innerWidth/2) / oldPpb;
+    const worldZ = viewY + (my - innerHeight/2) / oldPpb;
 
-    const worldX = viewX + (mx - canvas.width/2) / oldPpb;
-    const worldZ = viewY + (my - canvas.height/2) / oldPpb;
-
-    let newZoom;
-    if (e.ctrlKey) {
-        newZoom = zoom + (e.deltaY > 0 ? -1 : 1);
-    } else {
-        const dir = e.deltaY > 0 ? -1 : 1;
-        newZoom = Math.round(zoom * 10 + dir) / 10;
-    }
+    let newZoom = e.ctrlKey
+        ? zoom + (e.deltaY > 0 ? -1 : 1)
+        : Math.round(zoom * 10 + (e.deltaY > 0 ? -1 : 1)) / 10;
 
     newZoom = Math.max(0.1, Math.min(50, newZoom));
     zoom = newZoom;
 
-    const newScale = getPixelScale();
-    viewX = worldX - (mx - canvas.width/2) / newScale.scale;
-    viewY = worldZ - (my - canvas.height/2) / newScale.scale;
+    const newPpb = getPixelScale().scale;
+    viewX = worldX - (mx - innerWidth/2) / newPpb;
+    viewY = worldZ - (my - innerHeight/2) / newPpb;
 
     clampView();
     draw();
 }, { passive: false });
 
-// === 8. DRAG ===
+// === DRAG ===
 canvas.addEventListener('mousedown', e => {
     isDragging = true;
-    startX = e.clientX;
-    startY = e.clientY;
-    startViewX = viewX;
-    startViewY = viewY;
+    startX = e.clientX; startY = e.clientY;
+    startViewX = viewX; startViewY = viewY;
     canvas.style.cursor = 'grabbing';
 });
 
 window.addEventListener('mousemove', e => {
-    if (!isDragging) {
-        const scale = getPixelScale().scale;
-        const wx = viewX + (e.clientX - canvas.width/2) / scale;
-        const wz = viewY + (e.clientY - canvas.height/2) / scale;
-        info.textContent = `Zoom: ${zoom.toFixed(2)}x | (${Math.round(wx)}, ${Math.round(wz)})`;
-        return;
+    if (isDragging) {
+        const ppb = getPixelScale().scale;
+        const dx = (e.clientX - startX) / ppb;
+        const dy = (e.clientY - startY) / ppb;
+        viewX = startViewX - dx;
+        viewY = startViewY - dy;
+        clampView();
+        draw();
     }
-
-    const scale = getPixelScale().scale;
-    const dx = (e.clientX - startX) / scale;
-    const dy = (e.clientY - startY) / scale;
-    viewX = startViewX - dx;
-    viewY = startViewY - dy;
-    clampView();
-    draw();
 });
 
 window.addEventListener('mouseup', () => {
@@ -224,6 +227,61 @@ function clampView() {
     viewY = Math.max(-WORLD_SIZE, Math.min(WORLD_SIZE, viewY));
 }
 
-// === 9. START ===
+// === START ===
 canvas.style.cursor = 'grab';
 draw();
+// === REKSU MOBILE MODE ===
+canvas.addEventListener('touchstart', e => {
+    if (e.touches.length === 1) {
+        isDragging = true;
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+        startViewX = viewX; startViewY = viewY;
+        canvas.style.cursor = 'grabbing';
+    } else if (e.touches.length === 2) {
+        e.preventDefault();
+        const t1 = e.touches[0], t2 = e.touches[1];
+        const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+        window.lastPinchDist = dist;
+        window.lastPinchZoom = zoom;
+    }
+}, { passive: false });
+
+canvas.addEventListener('touchmove', e => {
+    e.preventDefault();
+    if (e.touches.length === 1 && isDragging) {
+        const ppb = getPixelScale().scale;
+        const dx = (e.touches[0].clientX - startX) / ppb;
+        const dy = (e.touches[0].clientY - startY) / ppb;
+        viewX = startViewX - dx;
+        viewY = startViewY - dy;
+        clampView();
+        draw();
+    } else if (e.touches.length === 2) {
+        const t1 = e.touches[0], t2 = e.touches[1];
+        const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+        const centerX = (t1.clientX + t2.clientX) / 2;
+        const centerY = (t1.clientY + t2.clientY) / 2;
+        
+        const delta = dist / window.lastPinchDist;
+        const newZoom = window.lastPinchZoom * delta;
+        zoom = Math.max(0.3, Math.min(30, newZoom));
+        
+        // Zoom w stronę palców
+        const oldPpb = getPixelScale().scale;
+        const worldX = viewX + (centerX - innerWidth/2) / oldPpb;
+        const worldZ = viewY + (centerY - innerHeight/2) / oldPpb;
+        const newPpb = getPixelScale().scale;
+        viewX = worldX - (centerX - innerWidth/2) / newPpb;
+        viewY = worldZ - (centerY - innerHeight/2) / newPpb;
+        
+        clampView();
+        draw();
+        window.lastPinchDist = dist;
+    }
+}, { passive: false });
+
+canvas.addEventListener('touchend', () => {
+    isDragging = false;
+    canvas.style.cursor = 'grab';
+});
