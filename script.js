@@ -19,9 +19,10 @@ canvas.height = window.innerHeight;
 let viewX = 0, viewY = 0;
 let zoom = 1;
 
-// === CACHE ===
-const tileCache = new Map();
-const loadingRegions = new Set();
+// === CACHE + KOLEJKA ===
+const tileCache = new Map();           // max 2000 tile'i
+const regionQueue = new Set();          // regiony do załadowania
+let loadingRegion = null;               // tylko 1 na raz
 let loadedCount = 0;
 
 // === PLACEHOLDER ===
@@ -37,7 +38,7 @@ function worldToScreen(x, z) {
     };
 }
 
-// === PARSER region.xaero – BEZPIECZNY, DYNAMYCZNY ===
+// === PARSER region.xaero – BEZPIECZNY ===
 async function parseRegionXaero(buffer) {
     if (buffer.byteLength < 4) return [];
 
@@ -45,56 +46,42 @@ async function parseRegionXaero(buffer) {
     let offset = 0;
     const tiles = [];
 
-    // Czytamy tileCount
     if (offset + 4 > buffer.byteLength) return [];
     const tileCount = view.getInt32(offset, true);
     offset += 4;
 
-    // Czytamy nagłówki DOPÓKI SIĘ MIĘŚCI
     const headers = [];
     while (offset + 12 <= buffer.byteLength) {
         const dataOffset = view.getInt32(offset, true);
         const dataLength = view.getInt32(offset + 4, true);
-        const flags = view.getInt32(offset + 8, true);
         offset += 12;
 
-        // Pomijamy błędne
-        if (dataLength <= 0 || dataOffset <= 0) continue;
-        if (dataOffset >= buffer.byteLength) continue;
-        if (dataOffset + dataLength > buffer.byteLength) continue;
-        if (dataLength > 1024 * 1024) continue; // max 1MB na tile
+        if (dataLength <= 0 || dataOffset <= 0 || dataOffset + dataLength > buffer.byteLength) continue;
+        if (dataLength > 1024 * 1024) continue;
 
-        headers.push({ dataOffset, dataLength, flags });
+        headers.push({ dataOffset, dataLength });
     }
 
-    // Przetwarzamy każdy poprawny tile
     for (const h of headers) {
         try {
             let pos = h.dataOffset;
             const end = pos + h.dataLength;
 
-            // Paleta: 256 × 4 bajty
             const palette = [];
             for (let i = 0; i < 256 && pos + 4 <= end; i++) {
-                palette.push([
-                    buffer[pos++], buffer[pos++], buffer[pos++], buffer[pos++]
-                ]);
+                palette.push([buffer[pos++], buffer[pos++], buffer[pos++], buffer[pos++]]);
             }
 
-            // RLE
             const pixels = new Uint8ClampedArray(TILE_SIZE * TILE_SIZE * 4);
             let pi = 0;
-
             while (pos + 2 <= end && pi < pixels.length) {
                 const run = buffer[pos++];
                 const idx = buffer[pos++];
                 const [r, g, b, a] = palette[idx] || [135, 206, 235, 255];
-
                 for (let i = 0; i < run && pi < pixels.length; i++) {
                     pixels[pi++] = r; pixels[pi++] = g; pixels[pi++] = b; pixels[pi++] = a;
                 }
             }
-
             while (pi < pixels.length) {
                 pixels[pi++] = 135; pixels[pi++] = 206; pixels[pi++] = 235; pixels[pi++] = 255;
             }
@@ -102,68 +89,66 @@ async function parseRegionXaero(buffer) {
             const imageData = new ImageData(TILE_SIZE, TILE_SIZE);
             imageData.data.set(pixels);
             const bitmap = await createImageBitmap(imageData);
-
-            // Oblicz tileX/tileZ z dataOffset (przybliżenie)
-            const approxIndex = Math.floor((h.dataOffset - 4 - headers.length * 12) / 1000);
-            const tileX = approxIndex % 32;
-            const tileZ = Math.floor(approxIndex / 32);
-
-            tiles.push({ bitmap, tileX, tileZ });
-        } catch (e) {
-            continue;
-        }
+            tiles.push(bitmap);
+        } catch (e) { continue; }
     }
 
     return tiles;
 }
 
-// === ŁADOWANIE REGIONU ===
-async function loadRegion(rx, rz) {
-    const key = `${rx}_${rz}`;
-    if (loadingRegions.has(key)) return;
-    loadingRegions.add(key);
+// === ŁADOWANIE REGIONU – TYLKO 1 NA RAZ ===
+async function loadNextRegion() {
+    if (loadingRegion || regionQueue.size === 0) return;
+    const key = regionQueue.values().next().value;
+    regionQueue.delete(key);
+    loadingRegion = key;
 
+    const [rx, rz] = key.split('_').map(Number);
     try {
         const response = await fetch(`tiles/${rx}_${rz}.zip`);
-        if (!response.ok) {
-            loadingRegions.delete(key);
-            return;
-        }
+        if (!response.ok) throw new Error();
 
         const arrayBuffer = await response.arrayBuffer();
         const zip = await JSZip.loadAsync(arrayBuffer);
         const file = zip.file("region.xaero");
-        if (!file) {
-            loadingRegions.delete(key);
-            return;
-        }
+        if (!file) throw new Error();
 
         const regionBuffer = await file.async("arraybuffer");
-        const tiles = await parseRegionXaero(regionBuffer);
+        const bitmaps = await parseRegionXaero(regionBuffer);
 
-        tiles.forEach((t, i) => {
-            // Poprawne tileX/tileZ – heurystyka
-            const tileX = i % 4;
-            const tileZ = Math.floor(i / 4);
-            const worldTileX = rx * 4 + tileX;
-            const worldTileZ = rz * 4 + tileZ;
-            const tileKey = `${rx}_${rz}_${tileX}_${tileZ}`;
-            tileCache.set(tileKey, t.bitmap);
+        bitmaps.forEach((bitmap, i) => {
+            const tx = i % 4;
+            const tz = Math.floor(i / 4);
+            const worldX = rx * 4 + tx;
+            const worldZ = rz * 4 + tz;
+            const tileKey = `${rx}_${rz}_${tx}_${tz}`;
+            tileCache.set(tileKey, bitmap);
             loadedCount++;
             loadingEl.textContent = `Ładowanie... (${loadedCount} tile'i)`;
         });
 
-        loadingRegions.delete(key);
+        // Usuń stare tile'e (poza widokiem)
+        if (tileCache.size > 2000) {
+            const visibleKeys = new Set();
+            getVisibleTiles().forEach(t => visibleKeys.add(`${t.rx}_${t.rz}_${t.tx}_${t.tz}`));
+            for (const key of tileCache.keys()) {
+                if (!visibleKeys.has(key)) tileCache.delete(key);
+            }
+        }
+
         draw();
     } catch (e) {
-        loadingRegions.delete(key);
+        // cicho – region nie istnieje
+    } finally {
+        loadingRegion = null;
+        setTimeout(loadNextRegion, 50); // mała przerwa
     }
 }
 
-// === getVisibleTiles, draw, zoom, pan, resize – bez zmian ===
+// === WIDOCZNE TILE'E (tylko +1 region bufor) ===
 function getVisibleTiles() {
     const tiles = [];
-    const buffer = REGION_SIZE * 2;
+    const buffer = REGION_SIZE * 1; // tylko +1 region
     const minX = viewX - canvas.width / (2 * zoom) - buffer;
     const maxX = viewX + canvas.width / (2 * zoom) + buffer;
     const minZ = viewY - canvas.height / (2 * zoom) - buffer;
@@ -185,11 +170,13 @@ function getVisibleTiles() {
     return tiles;
 }
 
+// === RYSOWANIE ===
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     const visible = getVisibleTiles();
 
+    // Placeholder
     visible.forEach(t => {
         const key = `${t.rx}_${t.rz}_${t.tx}_${t.tz}`;
         if (!tileCache.has(key)) {
@@ -199,6 +186,7 @@ function draw() {
         }
     });
 
+    // Rysuj tile'e
     tileCache.forEach((bitmap, key) => {
         const [rx, rz, tx, tz] = key.split('_').map(Number);
         const blockX = rx * REGION_SIZE + tx * TILE_SIZE;
@@ -208,12 +196,11 @@ function draw() {
         ctx.drawImage(bitmap, s.x, s.y, size, size);
     });
 
-    const regions = new Set();
-    visible.forEach(t => regions.add(`${t.rx}_${t.rz}`));
-    regions.forEach(k => {
-        const [rx, rz] = k.split('_').map(Number);
-        loadRegion(rx, rz);
-    });
+    // Dodaj regiony do kolejki
+    visible.forEach(t => regionQueue.add(`${t.rx}_${t.rz}`));
+
+    // Start kolejki
+    if (!loadingRegion) setTimeout(loadNextRegion, 100);
 
     if (loadedCount > 0) {
         loadingEl.style.opacity = '0';
@@ -221,7 +208,7 @@ function draw() {
     }
 }
 
-// === ZOOM ===
+// === ZOOM + PAN + RESIZE (bez zmian) ===
 canvas.addEventListener('wheel', e => {
     e.preventDefault();
     const delta = e.deltaY > 0 ? 0.9 : 1.1;
@@ -244,7 +231,6 @@ canvas.addEventListener('wheel', e => {
     draw();
 });
 
-// === PAN ===
 let dragging = false, px = 0, py = 0;
 canvas.addEventListener('mousedown', e => { dragging = true; px = e.clientX; py = e.clientY; });
 canvas.addEventListener('mousemove', e => {
@@ -263,7 +249,6 @@ canvas.addEventListener('mousemove', e => {
 canvas.addEventListener('mouseup', () => dragging = false);
 canvas.addEventListener('mouseleave', () => dragging = false);
 
-// === RESIZE ===
 window.addEventListener('resize', () => {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
