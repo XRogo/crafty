@@ -9,9 +9,9 @@ const BLOCKS_PER_TILE = { 256: 256, 512: 1024, 1024: 4096 };
 
 // SUPER PŁYNNE PRZEJŚCIA
 const LEVELS = [
-    { size: 1024, folder: 0, minZoom: 0.10, maxZoom: 0.70 },
-    { size: 512,  folder: 1, minZoom: 0.55, maxZoom: 1.00 },
-    { size: 256,  folder: 2, minZoom: 0.85, maxZoom: 4.00 }
+    { size: 1024, folder: 0, minZoom: 0.10, maxZoom: 0.30 },
+    { size: 512,  folder: 1, minZoom: 0.30, maxZoom: 0.70 },
+    { size: 256,  folder: 2, minZoom: 0.70, maxZoom: 40.00 }
 ];
 
 const WORLD_SIZE = 10000;
@@ -68,13 +68,13 @@ function getLevel() {
 function getPixelScale() {
     const lvl = getLevel();
     const blocksPerTile = BLOCKS_PER_TILE[lvl.size];
-    let ideal = zoom * (lvl.size / blocksPerTile);
+    let ideal = zoom;
 
     const idx = LEVELS.indexOf(lvl);
     const next = LEVELS[idx + 1];
     if (next && zoom > lvl.maxZoom * 0.85) {
         const progress = (zoom - lvl.maxZoom * 0.85) / (lvl.maxZoom * 0.15);
-        const nextIdeal = zoom * (next.size / BLOCKS_PER_TILE[next.size]);
+        const nextIdeal = zoom;
         ideal = ideal * (1 - progress) + nextIdeal * progress;
     }
 
@@ -205,7 +205,7 @@ canvas.addEventListener('wheel', e => {
     const worldZ = viewY + (my - innerHeight/2) / oldPpb;
 
     let newZoom = Math.round(zoom * 10 + (e.deltaY > 0 ? -1 : 1)) / 10;
-    newZoom = Math.max(0.1, Math.min(4, newZoom));
+    newZoom = Math.max(0.1, Math.min(40, newZoom));
     zoom = newZoom;
     slider.value = zoom;
 
