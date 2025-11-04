@@ -1,9 +1,9 @@
 /* ==============================================================
-   MAPA MINECRAFT v9 – EDYTOR 4.0
-   - PRZESUWANIE MAPY PODCZAS RYSOWANIA (scroll)
-   - ZOOM DZIAŁA
-   - + ZAPISUJE
-   - KROPKA NA LINII
+   MAPA MINECRAFT v9 – EDYTOR PRO v2
+   - ŁADNY PRZYCISK
+   - X ZAMYKA
+   - AUTO-WYPEŁNIENIE
+   - ŚRODKOWY SCROLL = PRZESUWANIE
    ============================================================== */
 
 const BLOCKS_PER_TILE = { 256: 256, 512: 1024, 1024: 4096 };
@@ -20,9 +20,10 @@ const info = document.getElementById('info');
 const loading = document.getElementById('loading');
 const slider = document.getElementById('zoom-slider');
 const zoomLabel = document.getElementById('zoom-label');
+const openBtn = document.getElementById('open-editor-btn');
 const editorPanel = document.getElementById('editor-panel');
+const closeBtn = document.getElementById('close-editor');
 
-// === STANY ===
 let polygons = (window.polygonsData && window.polygonsData.length > 0) ? [...window.polygonsData] : [];
 let isDrawing = false;
 let tempPoints = [];
@@ -32,7 +33,6 @@ let hoverEdge = -1;
 let edgePoint = null;
 let blink = true;
 
-// === CONFIG ===
 let editorConfig = {
     category: 1,
     lineColor: '#00ff00',
@@ -41,14 +41,13 @@ let editorConfig = {
     closePath: true
 };
 
-// === ZOOM I POZYCJA ===
 let zoom = 1;
 let viewX = 0, viewY = 0;
+let isPanning = false;
+let panStartX, panStartY, panStartViewX, panStartViewY;
 let isDragging = false;
-let startX, startY, startViewX, startViewY;
+let dragStartX, dragStartY, dragStartViewX, dragStartViewY;
 let pixelRatio = 1;
-
-// === CACHE ===
 const cache = new Map();
 let loadedTiles = 0;
 
@@ -85,7 +84,7 @@ function calculateCentroid(points) {
     return [x / points.length, z / points.length];
 }
 
-// === RYSOWANIE ===
+// === RYSOWANIE POLIGONÓW ===
 function drawPolygons() {
     ctx.save();
     ctx.scale(pixelRatio, pixelRatio);
@@ -95,7 +94,6 @@ function drawPolygons() {
     ctx.scale(ppb, ppb);
     ctx.translate(-viewX, -viewY);
 
-    // Stałe poligony
     polygons.forEach(p => {
         if (!window.visibleCategories?.[p.category]) return;
         const { points, lineColor, fillColor, closePath, name } = p;
@@ -108,7 +106,7 @@ function drawPolygons() {
         ctx.lineWidth = 2.5 / zoom;
         ctx.stroke();
         if (name && zoom > 2) {
-            const [cx, cz] = calculateCentroid(points);
+            const [cx,cz] = calculateCentroid(points);
             ctx.font = `${14/zoom}px Arial`;
             ctx.fillStyle = 'white';
             ctx.strokeStyle = 'black';
@@ -118,7 +116,6 @@ function drawPolygons() {
         }
     });
 
-    // Temp poligon
     if (isDrawing && tempPoints.length > 0) {
         ctx.beginPath();
         tempPoints.forEach(([x, z], i) => i === 0 ? ctx.moveTo(x, z) : ctx.lineTo(x, z));
@@ -129,7 +126,6 @@ function drawPolygons() {
         ctx.lineWidth = 3/zoom;
         ctx.stroke();
 
-        // Punkty
         tempPoints.forEach(([x, z], i) => {
             const isLast = i === tempPoints.length - 1;
             const isHover = i === hoverPoint;
@@ -144,7 +140,6 @@ function drawPolygons() {
             ctx.stroke();
         });
 
-        // Kropka na linii
         if (edgePoint) {
             ctx.beginPath();
             ctx.arc(edgePoint.x, edgePoint.z, 7/zoom, 0, Math.PI*2);
@@ -155,7 +150,6 @@ function drawPolygons() {
             ctx.stroke();
         }
 
-        // Linia do myszy
         if (tempPoints.length > 0) {
             const [lx, lz] = tempPoints[tempPoints.length - 1];
             const [mx, mz] = screenToWorld(window.lastMouseX, window.lastMouseY);
@@ -170,7 +164,6 @@ function drawPolygons() {
 
     ctx.restore();
 
-    // + w lewym górnym rogu
     if (isDrawing) {
         ctx.fillStyle = '#0f0';
         ctx.strokeStyle = '#000';
@@ -181,10 +174,9 @@ function drawPolygons() {
     }
 }
 
-// === MRUGANIE ===
 setInterval(() => { blink = !blink; if (isDrawing) draw(); }, 500);
 
-// === RESIZE ===
+// === RESIZE, ZOOM, KAFELKI, DRAW – bez zmian ===
 function resize() {
     pixelRatio = window.devicePixelRatio || 1;
     canvas.width = innerWidth * pixelRatio;
@@ -197,7 +189,6 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
-// === POZIOM ZOOMU ===
 function getLevel() {
     for (const lvl of LEVELS) if (zoom >= lvl.minZoom && zoom <= lvl.maxZoom) return lvl;
     return zoom < 0.6 ? LEVELS[0] : zoom < 0.9 ? LEVELS[1] : LEVELS[2];
@@ -210,7 +201,6 @@ function getPixelScale() {
     return { scale: tps / bpt, tilePixelSize: tps };
 }
 
-// === KAFELKI ===
 function loadTile(tx, ty, level) {
     const key = `${level.folder}_${tx}_${ty}`;
     if (cache.has(key)) return cache.get(key);
@@ -225,7 +215,6 @@ function loadTile(tx, ty, level) {
     return p;
 }
 
-// === RYSOWANIE CAŁEJ MAPY ===
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = '#111';
@@ -272,7 +261,7 @@ function draw() {
     slider.value = zoom;
 }
 
-// === ZOOM KOŁEM ===
+// === ZOOM ===
 canvas.addEventListener('wheel', e => {
     e.preventDefault();
     const rect = canvas.getBoundingClientRect();
@@ -292,22 +281,26 @@ canvas.addEventListener('wheel', e => {
     draw();
 }, { passive: false });
 
-// === PRZESUWANIE (ZAWSZE) ===
+// === INTERAKCJA ===
 canvas.addEventListener('mousedown', e => {
+    if (e.button === 1) { // ŚRODKOWY
+        if (isDrawing) {
+            isPanning = true;
+            panStartX = e.clientX;
+            panStartY = e.clientY;
+            panStartViewX = viewX;
+            panStartViewY = viewY;
+            canvas.style.cursor = 'grabbing';
+        }
+        return;
+    }
+
     if (e.button !== 0) return;
 
-    // Klik na +
     if (isDrawing && e.clientX < 70 && e.clientY < 80) {
         savePolygon();
         return;
     }
-
-    isDragging = true;
-    startX = e.clientX;
-    startY = e.clientY;
-    startViewX = viewX;
-    startViewY = viewY;
-    canvas.style.cursor = 'grabbing';
 
     if (isDrawing) {
         if (edgePoint) {
@@ -319,6 +312,13 @@ canvas.addEventListener('mousedown', e => {
             const [wx, wz] = screenToWorld(e.clientX, e.clientY);
             tempPoints.push([Math.round(wx), Math.round(wz)]);
         }
+    } else {
+        isDragging = true;
+        dragStartX = e.clientX;
+        dragStartY = e.clientY;
+        dragStartViewX = viewX;
+        dragStartViewY = viewY;
+        canvas.style.cursor = 'grabbing';
     }
     draw();
 });
@@ -327,14 +327,21 @@ window.addEventListener('mousemove', e => {
     window.lastMouseX = e.clientX;
     window.lastMouseY = e.clientY;
 
-    if (isDragging) {
+    if (isPanning && isDrawing) {
         const ppb = getPixelScale().scale;
-        viewX = startViewX - (e.clientX - startX) / ppb;
-        viewY = startViewY - (e.clientY - startY) / ppb;
+        viewX = panStartViewX - (e.clientX - panStartX) / ppb;
+        viewY = panStartViewY - (e.clientY - panStartY) / ppb;
         clampView();
     }
 
-    if (isDrawing && !isDragging) {
+    if (isDragging && !isDrawing) {
+        const ppb = getPixelScale().scale;
+        viewX = dragStartViewX - (e.clientX - dragStartX) / ppb;
+        viewY = dragStartViewY - (e.clientY - dragStartY) / ppb;
+        clampView();
+    }
+
+    if (isDrawing && !isPanning && !isDragging) {
         const [wx, wz] = screenToWorld(e.clientX, e.clientY);
         hoverPoint = -1;
         hoverEdge = -1;
@@ -354,7 +361,7 @@ window.addEventListener('mousemove', e => {
                 const a = tempPoints[i];
                 const b = tempPoints[i + 1];
                 const { dist, x, z } = pointDistanceToSegment(wx, wz, a[0], a[1], b[0], b[1]);
-                if (dist < 12 / ppb) {
+                if (dist < 12 / getPixelScale().scale) {
                     hoverEdge = i;
                     edgePoint = { x, z, edge: i };
                     break;
@@ -369,9 +376,12 @@ window.addEventListener('mousemove', e => {
     draw();
 });
 
-window.addEventListener('mouseup', () => {
-    isDragging = false;
-    selectedPoint = -1;
+window.addEventListener('mouseup', e => {
+    if (e.button === 1) isPanning = false;
+    if (e.button === 0) {
+        isDragging = false;
+        selectedPoint = -1;
+    }
     canvas.style.cursor = isDrawing ? 'crosshair' : 'grab';
 });
 
@@ -415,20 +425,57 @@ function savePolygon() {
     tempPoints = [];
     edgePoint = null;
     canvas.style.cursor = 'grab';
-    editorPanel.style.display = 'block';
+    editorPanel.style.display = 'none';
     info.textContent = 'Zapisano!';
     draw();
 }
 
-// === START EDYTORA ===
+// === EDYTOR UI ===
+openBtn.addEventListener('click', () => {
+    editorPanel.style.display = 'block';
+    openBtn.style.display = 'none';
+});
+
+closeBtn.addEventListener('click', () => {
+    editorPanel.style.display = 'none';
+    openBtn.style.display = 'block';
+});
+
+document.querySelectorAll('.cat-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.cat-btn').forEach(b => b.style.background = '');
+        btn.style.background = '#0f0';
+        btn.style.color = '#000';
+        editorConfig.category = parseInt(btn.dataset.cat);
+
+        if (editorConfig.category === 3) {
+            editorConfig.lineColor = '#ffffff99';
+            editorConfig.fillColor = '#ffffff33';
+            document.getElementById('lineColor').value = '#ffffff';
+            document.getElementById('lineColor').disabled = true;
+        } else {
+            document.getElementById('lineColor').disabled = false;
+        }
+    });
+});
+
+document.getElementById('lineColor').addEventListener('input', e => {
+    const hex = e.target.value;
+    editorConfig.lineColor = hex;
+    editorConfig.fillColor = hex + '33';
+});
+
+document.getElementById('polyName').addEventListener('input', e => {
+    editorConfig.name = e.target.value;
+});
+
 document.getElementById('startDrawing').addEventListener('click', () => {
     editorPanel.style.display = 'none';
+    openBtn.style.display = 'block';
     isDrawing = true;
     tempPoints = [];
-    hoverPoint = hoverEdge = -1;
-    edgePoint = null;
     canvas.style.cursor = 'crosshair';
-    info.textContent = 'Rysuj: klik = punkt | najedź na linię = nowy | scroll = przesuń | + = zapisz';
+    info.textContent = 'Rysuj: lewy=punkt | scroll=przesuń | +=zapisz';
     draw();
 });
 
@@ -436,15 +483,14 @@ window.addEventListener('keydown', e => {
     if (e.key === 'Escape' && isDrawing) {
         isDrawing = false;
         tempPoints = [];
-        edgePoint = null;
         canvas.style.cursor = 'grab';
-        editorPanel.style.display = 'block';
+        editorPanel.style.display = 'none';
+        openBtn.style.display = 'block';
         draw();
     }
 });
 
-// === INICJALIZACJA ===
+// === START ===
 slider.addEventListener('input', e => { zoom = parseFloat(e.target.value); draw(); });
 canvas.style.cursor = 'grab';
-setTimeout(() => { editorPanel.style.display = 'block'; }, 1000);
 draw();
