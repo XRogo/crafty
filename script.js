@@ -1,9 +1,9 @@
 /* ==============================================================
-   MAPA MINECRAFT v9 – DZIAŁA LOKALNIE + POLIGONY NA COORDACH
-   - kafelki się ładują
-   - poligony dokładnie na koordynatach (jak w info na górze!)
-   - rysowanie nowych (dwuklik → klikaj → Enter)
-   - zero błędów CORS
+   MAPA MINECRAFT v9 – EDYTOR 4.0
+   - PRZESUWANIE MAPY PODCZAS RYSOWANIA (scroll)
+   - ZOOM DZIAŁA
+   - + ZAPISUJE
+   - KROPKA NA LINII
    ============================================================== */
 
 const BLOCKS_PER_TILE = { 256: 256, 512: 1024, 1024: 4096 };
@@ -20,159 +20,169 @@ const info = document.getElementById('info');
 const loading = document.getElementById('loading');
 const slider = document.getElementById('zoom-slider');
 const zoomLabel = document.getElementById('zoom-label');
+const editorPanel = document.getElementById('editor-panel');
 
+// === STANY ===
+let polygons = (window.polygonsData && window.polygonsData.length > 0) ? [...window.polygonsData] : [];
+let isDrawing = false;
+let tempPoints = [];
+let selectedPoint = -1;
+let hoverPoint = -1;
+let hoverEdge = -1;
+let edgePoint = null;
+let blink = true;
+
+// === CONFIG ===
+let editorConfig = {
+    category: 1,
+    lineColor: '#00ff00',
+    fillColor: '#00ff0033',
+    name: '',
+    closePath: true
+};
+
+// === ZOOM I POZYCJA ===
 let zoom = 1;
 let viewX = 0, viewY = 0;
 let isDragging = false;
 let startX, startY, startViewX, startViewY;
 let pixelRatio = 1;
 
+// === CACHE ===
 const cache = new Map();
 let loadedTiles = 0;
 
-// === POLIGONY Z POZYCJE.JS ===
-const polygons = (window.polygonsData && window.polygonsData.length > 0) 
-    ? window.polygonsData 
-    : [];
+// === FUNKCJE ===
+function worldToScreen(x, z) {
+    const { scale: ppb } = getPixelScale();
+    const cx = innerWidth / 2, cy = innerHeight / 2;
+    return [cx + (x - viewX) * ppb, cy + (z - viewY) * ppb];
+}
 
-// === GLOBALNE DO RYSOWANIA ===
-window.visibleCategories = { 1: true, 2: true };
-window.isDrawing = false;
-window.tempPolygon = { points: [] };
+function screenToWorld(mx, my) {
+    const rect = canvas.getBoundingClientRect();
+    const x = mx - rect.left;
+    const y = my - rect.top;
+    const { scale: ppb } = getPixelScale();
+    const cx = innerWidth / 2, cy = innerHeight / 2;
+    return [viewX + (x - cx) / ppb, viewY + (y - cy) / ppb];
+}
 
-// === FUNKCJE POMOCNICZE ===
+function pointDistanceToSegment(px, pz, x1, z1, x2, z2) {
+    const A = px - x1, B = pz - z1, C = x2 - x1, D = z2 - z1;
+    const dot = A * C + B * D;
+    const lenSq = C * C + D * D;
+    let param = lenSq !== 0 ? dot / lenSq : -1;
+    param = Math.max(0, Math.min(1, param));
+    const xx = x1 + param * C;
+    const zz = z1 + param * D;
+    return { dist: Math.hypot(px - xx, pz - zz), x: xx, z: zz, param };
+}
+
 function calculateCentroid(points) {
-    let xSum = 0, zSum = 0;
-    points.forEach(([x, z]) => { xSum += x; zSum += z; });
-    const count = points.length;
-    return count > 0 ? [xSum / count, zSum / count] : [0, 0];
+    let x = 0, z = 0;
+    points.forEach(p => { x += p[0]; z += p[1]; });
+    return [x / points.length, z / points.length];
 }
 
-function drawTextAlongPath(text, points, offset = 0) {
-    if (points.length < 2) return;
-
-    const totalLength = points.reduce((len, p, i) => {
-        if (i === 0) return 0;
-        const dx = p[0] - points[i - 1][0];
-        const dz = p[1] - points[i - 1][1];
-        return len + Math.hypot(dx, dz);
-    }, 0);
-
-    let target = totalLength / 2 + offset;
-    let travelled = 0;
-
-    for (let i = 1; i < points.length; i++) {
-        const a = points[i - 1];
-        const b = points[i];
-        const segLen = Math.hypot(b[0] - a[0], b[1] - a[1]);
-        if (travelled + segLen >= target) {
-            const ratio = (target - travelled) / segLen;
-            const x = a[0] + (b[0] - a[0]) * ratio;
-            const z = a[1] + (b[1] - a[1]) * ratio;
-            const angle = Math.atan2(b[1] - a[1], b[0] - a[0]);
-
-            ctx.save();
-            ctx.translate(x, z);
-            ctx.rotate(angle);
-            ctx.font = `${14 / zoom}px Arial`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.strokeStyle = 'black';
-            ctx.lineWidth = 2 / zoom;
-            ctx.strokeText(text, 0, 0);
-            ctx.fillStyle = 'white';
-            ctx.fillText(text, 0, 0);
-            ctx.restore();
-            return;
-        }
-        travelled += segLen;
-    }
-}
-
-// === RYSOWANIE POLIGONÓW (NA WŁAŚCIWYCH COORDACH!) ===
+// === RYSOWANIE ===
 function drawPolygons() {
     ctx.save();
     ctx.scale(pixelRatio, pixelRatio);
-
     const { scale: ppb } = getPixelScale();
-    const centerX = innerWidth / 2;
-    const centerY = innerHeight / 2;
-
-    // Przeskaluj i przesuń canvas – tak jak kafelki
-    ctx.translate(centerX, centerY);
+    const cx = innerWidth / 2, cy = innerHeight / 2;
+    ctx.translate(cx, cy);
     ctx.scale(ppb, ppb);
     ctx.translate(-viewX, -viewY);
 
-    // === STAŁE POLIGONY ===
-    polygons.forEach(polygon => {
-        if (!window.visibleCategories[polygon.category]) return;
-        if (!polygon.points || polygon.points.length === 0) return;
-        if (polygon.category === 2 && zoom <= 3) return;
-
-        const { points, lineColor, fillColor, closePath, name, category } = polygon;
-
+    // Stałe poligony
+    polygons.forEach(p => {
+        if (!window.visibleCategories?.[p.category]) return;
+        const { points, lineColor, fillColor, closePath, name } = p;
         ctx.beginPath();
-        points.forEach((p, i) => {
-            const [x, z] = p;
-            if (i === 0) ctx.moveTo(x, z);
-            else ctx.lineTo(x, z);
-        });
-        if (closePath && category === 1) ctx.closePath();
-
-        ctx.fillStyle = category === 1 ? fillColor : 'rgba(0,0,0,0)';
+        points.forEach(([x, z], i) => i === 0 ? ctx.moveTo(x, z) : ctx.lineTo(x, z));
+        if (closePath) ctx.closePath();
+        ctx.fillStyle = fillColor;
         ctx.fill();
-
         ctx.strokeStyle = lineColor;
-        ctx.lineWidth = category === 1 ? 2 / zoom : (category === 2 ? 6 / zoom : 3 / zoom);
+        ctx.lineWidth = 2.5 / zoom;
         ctx.stroke();
-
-        if (name && (category === 1 || zoom > 3)) {
-            ctx.font = `${14 / zoom}px Arial`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-
-            if (category === 1) {
-                const [cx, cz] = calculateCentroid(points);
-                ctx.strokeStyle = 'black';
-                ctx.lineWidth = 1.5 / zoom;
-                ctx.strokeText(name, cx, cz);
-                ctx.fillStyle = 'white';
-                ctx.fillText(name, cx, cz);
-            } else {
-                drawTextAlongPath(name, points, 0);
-            }
+        if (name && zoom > 2) {
+            const [cx, cz] = calculateCentroid(points);
+            ctx.font = `${14/zoom}px Arial`;
+            ctx.fillStyle = 'white';
+            ctx.strokeStyle = 'black';
+            ctx.lineWidth = 2/zoom;
+            ctx.strokeText(name, cx, cz);
+            ctx.fillText(name, cx, cz);
         }
     });
 
-    // === TEMPORALNY POLIGON ===
-    if (window.isDrawing && window.tempPolygon.points.length > 0) {
-        const pts = window.tempPolygon.points;
+    // Temp poligon
+    if (isDrawing && tempPoints.length > 0) {
         ctx.beginPath();
-        pts.forEach((p, i) => {
-            const [x, z] = p;
-            if (i === 0) ctx.moveTo(x, z);
-            else ctx.lineTo(x, z);
-        });
-        ctx.strokeStyle = 'red';
-        ctx.lineWidth = 2 / zoom;
+        tempPoints.forEach(([x, z], i) => i === 0 ? ctx.moveTo(x, z) : ctx.lineTo(x, z));
+        if (editorConfig.closePath && tempPoints.length > 2) ctx.closePath();
+        ctx.fillStyle = editorConfig.fillColor;
+        ctx.fill();
+        ctx.strokeStyle = editorConfig.lineColor;
+        ctx.lineWidth = 3/zoom;
         ctx.stroke();
 
-        pts.forEach(([x, z]) => {
+        // Punkty
+        tempPoints.forEach(([x, z], i) => {
+            const isLast = i === tempPoints.length - 1;
+            const isHover = i === hoverPoint;
+            const isSel = i === selectedPoint;
             ctx.beginPath();
-            ctx.arc(x, z, 3 / zoom, 0, Math.PI * 2);
-            ctx.fillStyle = 'red';
+            ctx.arc(x, z, 6/zoom, 0, Math.PI*2);
+            ctx.fillStyle = isSel ? '#ffff00' : isHover ? '#ff00ff' : '#ff0000';
+            if (isLast && blink) ctx.fillStyle = '#00ffff';
             ctx.fill();
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2/zoom;
+            ctx.stroke();
         });
+
+        // Kropka na linii
+        if (edgePoint) {
+            ctx.beginPath();
+            ctx.arc(edgePoint.x, edgePoint.z, 7/zoom, 0, Math.PI*2);
+            ctx.fillStyle = '#00ff00';
+            ctx.fill();
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2/zoom;
+            ctx.stroke();
+        }
+
+        // Linia do myszy
+        if (tempPoints.length > 0) {
+            const [lx, lz] = tempPoints[tempPoints.length - 1];
+            const [mx, mz] = screenToWorld(window.lastMouseX, window.lastMouseY);
+            ctx.beginPath();
+            ctx.moveTo(lx, lz);
+            ctx.lineTo(mx, mz);
+            ctx.strokeStyle = '#ffffff88';
+            ctx.lineWidth = 1.5/zoom;
+            ctx.stroke();
+        }
     }
 
     ctx.restore();
+
+    // + w lewym górnym rogu
+    if (isDrawing) {
+        ctx.fillStyle = '#0f0';
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 4;
+        ctx.font = 'bold 42px Arial';
+        ctx.strokeText('+', 12, 58);
+        ctx.fillText('+', 12, 58);
+    }
 }
 
-// === WYŁĄCZ ROZMYCIE ===
-function disableSmoothing() {
-    ctx.imageSmoothingEnabled = false;
-}
-disableSmoothing();
+// === MRUGANIE ===
+setInterval(() => { blink = !blink; if (isDrawing) draw(); }, 500);
 
 // === RESIZE ===
 function resize() {
@@ -181,7 +191,7 @@ function resize() {
     canvas.height = innerHeight * pixelRatio;
     canvas.style.width = innerWidth + 'px';
     canvas.style.height = innerHeight + 'px';
-    disableSmoothing();
+    ctx.imageSmoothingEnabled = false;
     draw();
 }
 window.addEventListener('resize', resize);
@@ -189,46 +199,33 @@ resize();
 
 // === POZIOM ZOOMU ===
 function getLevel() {
-    for (const lvl of LEVELS) {
-        if (zoom >= lvl.minZoom && zoom <= lvl.maxZoom) return lvl;
-    }
+    for (const lvl of LEVELS) if (zoom >= lvl.minZoom && zoom <= lvl.maxZoom) return lvl;
     return zoom < 0.6 ? LEVELS[0] : zoom < 0.9 ? LEVELS[1] : LEVELS[2];
 }
 
 function getPixelScale() {
     const lvl = getLevel();
-    const blocksPerTile = BLOCKS_PER_TILE[lvl.size];
-    const tilePixelSize = Math.round(zoom * blocksPerTile);
-    const scale = tilePixelSize / blocksPerTile;
-    return { scale, tilePixelSize };
+    const bpt = BLOCKS_PER_TILE[lvl.size];
+    const tps = Math.round(zoom * bpt);
+    return { scale: tps / bpt, tilePixelSize: tps };
 }
 
-// === ŁADOWANIE KAFELKÓW ===
+// === KAFELKI ===
 function loadTile(tx, ty, level) {
     const key = `${level.folder}_${tx}_${ty}`;
     if (cache.has(key)) return cache.get(key);
-
     const ext = (Math.abs(tx) <= 1 && Math.abs(ty) <= 1) ? 'png' : 'webp';
     const img = new Image();
     img.src = `tiles/${level.folder}/${tx}_${ty}.${ext}`;
-
-    const promise = new Promise(resolve => {
-        img.onload = () => {
-            cache.set(key, img);
-            loadedTiles++;
-            if (loadedTiles > 8) {
-                loading.style.opacity = '0';
-                setTimeout(() => loading.style.display = 'none', 500);
-            }
-            resolve(img);
-        };
-        img.onerror = () => { cache.set(key, null); resolve(null); };
+    const p = new Promise(r => {
+        img.onload = () => { cache.set(key, img); loadedTiles++; if (loadedTiles > 8) { loading.style.opacity = '0'; setTimeout(() => loading.style.display = 'none', 500); } r(img); };
+        img.onerror = () => { cache.set(key, null); r(null); };
     });
-    cache.set(key, promise);
-    return promise;
+    cache.set(key, p);
+    return p;
 }
 
-// === RYSOWANIE ===
+// === RYSOWANIE CAŁEJ MAPY ===
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = '#111';
@@ -238,192 +235,216 @@ function draw() {
     ctx.scale(pixelRatio, pixelRatio);
 
     const level = getLevel();
-    const blocksPerTile = BLOCKS_PER_TILE[level.size];
+    const bpt = BLOCKS_PER_TILE[level.size];
     const { scale: ppb, tilePixelSize } = getPixelScale();
-    const centerX = innerWidth / 2;
-    const centerY = innerHeight / 2;
+    const cx = innerWidth / 2, cy = innerHeight / 2;
 
-    const leftBlock   = viewX - centerX / ppb;
-    const topBlock    = viewY - centerY / ppb;
-    const rightBlock  = viewX + centerX / ppb;
-    const bottomBlock = viewY + centerY / ppb;
-
-    const startTx = Math.floor(leftBlock / blocksPerTile);
-    const endTx   = Math.ceil(rightBlock / blocksPerTile);
-    const startTy = Math.floor(topBlock / blocksPerTile);
-    const endTy   = Math.ceil(bottomBlock / blocksPerTile);
+    const startTx = Math.floor((viewX - cx/ppb) / bpt);
+    const endTx = Math.ceil((viewX + cx/ppb) / bpt);
+    const startTy = Math.floor((viewY - cy/ppb) / bpt);
+    const endTy = Math.ceil((viewY + cy/ppb) / bpt);
 
     for (let tx = startTx - 1; tx <= endTx + 1; tx++) {
         for (let ty = startTy - 1; ty <= endTy + 1; ty++) {
             if (Math.abs(tx) > 50 || Math.abs(ty) > 50) continue;
             const key = `${level.folder}_${tx}_${ty}`;
-            const cached = cache.get(key);
-
-            if (cached && !(cached instanceof Promise) && cached) {
-                const blockX = tx * blocksPerTile;
-                const blockZ = ty * blocksPerTile;
-                const rawX = centerX + (blockX - viewX) * ppb;
-                const rawY = centerY + (blockZ - viewY) * ppb;
-                const screenX = Math.round(rawX * 10) / 10;
-                const screenY = Math.round(rawY * 10) / 10;
-                const drawW = Math.round(tilePixelSize * 10) / 10;
-                ctx.drawImage(cached, screenX, screenY, drawW, drawW);
-            } else if (!cached) {
-                loadTile(tx, ty, level);
-            }
+            const img = cache.get(key);
+            if (img && !(img instanceof Promise) && img) {
+                const bx = tx * bpt;
+                const bz = ty * bpt;
+                const rx = cx + (bx - viewX) * ppb;
+                const ry = cy + (bz - viewY) * ppb;
+                ctx.drawImage(img, Math.round(rx*10)/10, Math.round(ry*10)/10, Math.round(tilePixelSize*10)/10, Math.round(tilePixelSize*10)/10);
+            } else if (!cache.has(key)) loadTile(tx, ty, level);
         }
     }
 
     ctx.restore();
-
-    // === RYSUJ POLIGONY (na coordach!) ===
     drawPolygons();
 
-    // === INFO ===
     const rect = canvas.getBoundingClientRect();
-    const mx = (window.lastMouseX || innerWidth / 2) - rect.left;
-    const my = (window.lastMouseY || innerHeight / 2) - rect.top;
-    const worldX = viewX + (mx - centerX) / ppb;
-    const worldZ = viewY + (my - centerY) / ppb;
-
-    info.textContent = `(${Math.round(worldX)}, ${Math.round(worldZ)})`;
+    const mx = (window.lastMouseX || cx) - rect.left;
+    const my = (window.lastMouseY || cy) - rect.top;
+    const wx = viewX + (mx - cx) / ppb;
+    const wz = viewY + (my - cy) / ppb;
+    info.textContent = `(${Math.round(wx)}, ${Math.round(wz)})`;
     zoomLabel.textContent = `Zoom: ${zoom.toFixed(2)}x`;
     slider.value = zoom;
 }
 
-// === ZOOM ===
-slider.addEventListener('input', e => {
-    zoom = parseFloat(e.target.value);
-    draw();
-});
-
+// === ZOOM KOŁEM ===
 canvas.addEventListener('wheel', e => {
     e.preventDefault();
     const rect = canvas.getBoundingClientRect();
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
-
     const oldPpb = getPixelScale().scale;
     const worldX = viewX + (mx - innerWidth/2) / oldPpb;
     const worldZ = viewY + (my - innerHeight/2) / oldPpb;
 
-    zoom = Math.max(0.1, Math.min(40, zoom + (e.deltaY > 0 ? -0.1 : 0.1)));
+    zoom = Math.max(0.1, Math.min(40, zoom + (e.deltaY > 0 ? -0.15 : 0.15)));
     slider.value = zoom;
 
     const newPpb = getPixelScale().scale;
     viewX = worldX - (mx - innerWidth/2) / newPpb;
     viewY = worldZ - (my - innerHeight/2) / newPpb;
-
     clampView();
     draw();
 }, { passive: false });
 
-// === DRAG ===
+// === PRZESUWANIE (ZAWSZE) ===
 canvas.addEventListener('mousedown', e => {
+    if (e.button !== 0) return;
+
+    // Klik na +
+    if (isDrawing && e.clientX < 70 && e.clientY < 80) {
+        savePolygon();
+        return;
+    }
+
     isDragging = true;
-    startX = e.clientX; startY = e.clientY;
-    startViewX = viewX; startViewY = viewY;
+    startX = e.clientX;
+    startY = e.clientY;
+    startViewX = viewX;
+    startViewY = viewY;
     canvas.style.cursor = 'grabbing';
-});
-window.addEventListener('mouseup', () => { isDragging = false; canvas.style.cursor = 'grab'; });
-window.addEventListener('mousemove', e => {
-    window.lastMouseX = e.clientX;
-    window.lastMouseY = e.clientY;
-    if (isDragging) {
-        const ppb = getPixelScale().scale;
-        const dx = (e.clientX - startX) / ppb;
-        const dy = (e.clientY - startY) / ppb;
-        viewX = startViewX - dx;
-        viewY = startViewY - dy;
-        clampView();
+
+    if (isDrawing) {
+        if (edgePoint) {
+            tempPoints.splice(edgePoint.edge + 1, 0, [Math.round(edgePoint.x), Math.round(edgePoint.z)]);
+            selectedPoint = edgePoint.edge + 1;
+        } else if (hoverPoint !== -1) {
+            selectedPoint = hoverPoint;
+        } else {
+            const [wx, wz] = screenToWorld(e.clientX, e.clientY);
+            tempPoints.push([Math.round(wx), Math.round(wz)]);
+        }
     }
     draw();
 });
 
-// === MOBILE ===
-canvas.addEventListener('touchstart', e => {
-    if (e.touches.length === 1) {
-        isDragging = true;
-        startX = e.touches[0].clientX;
-        startY = e.touches[0].clientY;
-        startViewX = viewX; startViewY = viewY;
-    }
-}, { passive: false });
+window.addEventListener('mousemove', e => {
+    window.lastMouseX = e.clientX;
+    window.lastMouseY = e.clientY;
 
-canvas.addEventListener('touchmove', e => {
-    e.preventDefault();
-    if (e.touches.length === 1 && isDragging) {
+    if (isDragging) {
         const ppb = getPixelScale().scale;
-        const dx = (e.touches[0].clientX - startX) / ppb;
-        const dy = (e.touches[0].clientY - startY) / ppb;
-        viewX = startViewX - dx;
-        viewY = startViewY - dy;
+        viewX = startViewX - (e.clientX - startX) / ppb;
+        viewY = startViewY - (e.clientY - startY) / ppb;
         clampView();
+    }
+
+    if (isDrawing && !isDragging) {
+        const [wx, wz] = screenToWorld(e.clientX, e.clientY);
+        hoverPoint = -1;
+        hoverEdge = -1;
+        edgePoint = null;
+
+        for (let i = 0; i < tempPoints.length; i++) {
+            const [px, pz] = tempPoints[i];
+            const [sx, sz] = worldToScreen(px, pz);
+            if (Math.hypot(sx - e.clientX, sz - e.clientY) < 15) {
+                hoverPoint = i;
+                break;
+            }
+        }
+
+        if (hoverPoint === -1 && tempPoints.length > 1) {
+            for (let i = 0; i < tempPoints.length - 1; i++) {
+                const a = tempPoints[i];
+                const b = tempPoints[i + 1];
+                const { dist, x, z } = pointDistanceToSegment(wx, wz, a[0], a[1], b[0], b[1]);
+                if (dist < 12 / ppb) {
+                    hoverEdge = i;
+                    edgePoint = { x, z, edge: i };
+                    break;
+                }
+            }
+        }
+
+        if (selectedPoint !== -1) {
+            tempPoints[selectedPoint] = [Math.round(wx), Math.round(wz)];
+        }
+    }
+    draw();
+});
+
+window.addEventListener('mouseup', () => {
+    isDragging = false;
+    selectedPoint = -1;
+    canvas.style.cursor = isDrawing ? 'crosshair' : 'grab';
+});
+
+canvas.addEventListener('contextmenu', e => {
+    e.preventDefault();
+    if (isDrawing && hoverPoint !== -1) {
+        tempPoints.splice(hoverPoint, 1);
         draw();
     }
-}, { passive: false });
+});
 
-canvas.addEventListener('touchend', () => { isDragging = false; });
-
-// === CLAMP ===
 function clampView() {
     viewX = Math.max(-WORLD_SIZE, Math.min(WORLD_SIZE, viewX));
     viewY = Math.max(-WORLD_SIZE, Math.min(WORLD_SIZE, viewY));
 }
 
-// === RYSOWANIE NOWYCH POLIGONÓW ===
-canvas.addEventListener('dblclick', () => {
-    window.isDrawing = true;
-    window.tempPolygon.points = [];
-    info.textContent = 'Rysuj poligon... (klikaj, Enter = zapisz, Esc = anuluj)';
+// === ZAPIS ===
+function savePolygon() {
+    if (tempPoints.length < 3) return;
+    const poly = {
+        points: tempPoints,
+        lineColor: editorConfig.lineColor,
+        fillColor: editorConfig.fillColor,
+        closePath: editorConfig.closePath,
+        name: editorConfig.name || 'Nowy',
+        category: editorConfig.category
+    };
+    polygons.push(poly);
+    const code = `{
+    points: ${JSON.stringify(poly.points)},
+    lineColor: '${poly.lineColor}',
+    fillColor: '${poly.fillColor}',
+    closePath: ${poly.closePath},
+    name: '${poly.name}',
+    category: ${poly.category}
+},`;
+    navigator.clipboard.writeText(code).then(() => {
+        alert('SKOPIOWANO! Wklej do pozycje.js');
+    }).catch(() => prompt('SKOPIUJ:', code));
+    isDrawing = false;
+    tempPoints = [];
+    edgePoint = null;
+    canvas.style.cursor = 'grab';
+    editorPanel.style.display = 'block';
+    info.textContent = 'Zapisano!';
     draw();
-});
+}
 
-canvas.addEventListener('click', e => {
-    if (!window.isDrawing) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const mx = e.clientX - rect.left;
-    const my = e.clientY - rect.top;
-    const ppb = getPixelScale().scale;
-    const centerX = innerWidth / 2;
-    const centerY = innerHeight / 2;
-
-    const worldX = viewX + (mx - centerX) / ppb;
-    const worldZ = viewY + (my - centerY) / ppb;
-
-    window.tempPolygon.points.push([Math.round(worldX), Math.round(worldZ)]);
+// === START EDYTORA ===
+document.getElementById('startDrawing').addEventListener('click', () => {
+    editorPanel.style.display = 'none';
+    isDrawing = true;
+    tempPoints = [];
+    hoverPoint = hoverEdge = -1;
+    edgePoint = null;
+    canvas.style.cursor = 'crosshair';
+    info.textContent = 'Rysuj: klik = punkt | najedź na linię = nowy | scroll = przesuń | + = zapisz';
     draw();
 });
 
 window.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && window.isDrawing) {
-        window.isDrawing = false;
-        window.tempPolygon.points = [];
-        info.textContent = 'Anulowano';
-        draw();
-    }
-    if (e.key === 'Enter' && window.isDrawing && window.tempPolygon.points.length > 2) {
-        const name = prompt('Nazwa poligonu:', 'Nowy teren') || 'Bez nazwy';
-        const newPoly = {
-            points: window.tempPolygon.points,
-            lineColor: 'rgba(0, 255, 0, 1)',
-            fillColor: 'rgba(0, 255, 0, 0.2)',
-            closePath: true,
-            name: name,
-            category: 1
-        };
-        polygons.push(newPoly);
-        console.log('%cDODAJ DO pozycje.js:', 'color: lime; font-weight: bold;');
-        console.log(JSON.stringify(newPoly, null, 4));
-        window.isDrawing = false;
-        window.tempPolygon.points = [];
-        info.textContent = `Zapisano: ${name}`;
+    if (e.key === 'Escape' && isDrawing) {
+        isDrawing = false;
+        tempPoints = [];
+        edgePoint = null;
+        canvas.style.cursor = 'grab';
+        editorPanel.style.display = 'block';
         draw();
     }
 });
 
-// === START ===
+// === INICJALIZACJA ===
+slider.addEventListener('input', e => { zoom = parseFloat(e.target.value); draw(); });
 canvas.style.cursor = 'grab';
-slider.value = zoom;
+setTimeout(() => { editorPanel.style.display = 'block'; }, 1000);
 draw();

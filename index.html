@@ -51,6 +51,42 @@
             box-shadow:0 0 40px #0f0; transition:opacity .5s;
         }
     </style>
+    <!-- PANEL EDYTORA -->
+<div id="editor-panel" style="position:absolute; top:10px; left:10px; background:rgba(0,0,0,0.9); color:#0f0; padding:15px; border:2px solid #0f0; border-radius:12px; font-family:Courier New; z-index:100; display:none; box-shadow:0 0 20px #0f0;">
+    <h3 style="margin:0 0 10px; text-align:center; text-shadow:0 0 10px #0f0;">EDYTOR POLIGONÓW</h3>
+    
+    <div style="margin:8px 0;">
+        <label>Kategoria:</label><br>
+        <button id="cat1" class="cat-btn active">Teren</button>
+        <button id="cat2" class="cat-btn">Droga</button>
+        <button id="cat3" class="cat-btn">Kolej</button>
+    </div>
+
+    <div style="margin:8px 0;">
+        <label>Obramowanie:</label>
+        <input type="color" id="lineColor" value="#00ff00">
+    </div>
+
+    <div style="margin:8px 0;">
+        <label>Wypełnienie:</label>
+        <input type="color" id="fillColor" value="#00ff00">
+    </div>
+
+    <div style="margin:8px 0;">
+        <label>Nazwa:</label>
+        <input type="text" id="polyName" placeholder="np. Wioska" style="width:100%; background:#000; color:#0f0; border:1px solid #0f0; padding:5px;">
+    </div>
+
+    <div style="margin:8px 0;">
+        <label>Wypełnienie:</label><br>
+        <button id="fillYes" class="fill-btn active">TAK</button>
+        <button id="fillNo" class="fill-btn">NIE</button>
+    </div>
+
+    <div style="text-align:center; margin-top:15px;">
+        <button id="startDrawing" style="padding:10px 20px; background:#0f0; color:#000; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">ROZPOCZNIJ</button>
+    </div>
+</div> 
 </head>
 <body>
     <div id="map">
