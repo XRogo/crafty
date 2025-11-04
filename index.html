@@ -5,49 +5,64 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
-    <title>Mapa MC v7 – PIXEL RAZOR SHARP</title>
+    <title>Mapa MC v9 – SLIDER + PŁYNNY ZOOM</title>
     <style>
         *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
-        html, body {
-            width:100%; height:100%; overflow:hidden; background:#000;
-            touch-action: none; user-select: none; -webkit-tap-highlight-color: transparent;
-        }
-        #map {
-            width:100%; height:100%; position:relative;
-            image-rendering: pixelated;
-            image-rendering: -moz-crisp-edges;
-            image-rendering: -webkit-optimize-contrast;
-            image-rendering: crisp-edges;
-        }
+        html, body { width:100%; height:100%; overflow:hidden; background:#000; touch-action:none; user-select:none; }
+        #map { width:100%; height:100%; position:relative; }
         canvas {
-            position: absolute; top:0; left:0;
-            width:100%; height:100%;
+            position:absolute; top:0; left:0; width:100%; height:100%;
             image-rendering: pixelated;
             image-rendering: -moz-crisp-edges;
             image-rendering: -webkit-crisp-edges;
             image-rendering: crisp-edges;
+            touch-action: none !important;
         }
         #info {
-            position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
-            background: rgba(0,0,0,0.8); color: #0f0; padding: 8px 16px;
-            border-radius: 8px; font: bold 14px 'Courier New', monospace;
-            z-index: 10; pointer-events: none; backdrop-filter: blur(4px);
+            position:absolute; top:10px; left:50%; transform:translateX(-50%);
+            background:rgba(0,0,0,0.8); color:#0f0; padding:6px 14px;
+            border-radius:8px; font:bold 13px 'Courier New'; z-index:10;
+            pointer-events:none; border:1px solid #0f0; backdrop-filter:blur(4px);
+        }
+        #zoom-container {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            width: 90%; max-width: 500px; z-index: 20;
+            background: rgba(0,0,0,0.7); padding: 12px; border-radius: 12px;
+            border: 1px solid #0f0; box-shadow: 0 0 20px #0f0;
+        }
+        #zoom-slider {
+            -webkit-appearance: none; width: 100%; height: 12px;
+            border-radius: 6px; background: #333; outline: none;
             border: 1px solid #0f0;
         }
+        #zoom-slider::-webkit-slider-thumb {
+            -webkit-appearance: none; width: 28px; height: 28px;
+            background: #0f0; border-radius: 50%; cursor: grab;
+            box-shadow: 0 0 15px #0f0;
+        }
+        #zoom-label {
+            text-align: center; color: #0f0; font: bold 16px 'Courier New';
+            margin-top: 8px; text-shadow: 0 0 10px #0f0;
+        }
         #loading {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
-            background: #000; color: #0f0; padding: 24px 48px;
-            border-radius: 16px; font: bold 24px 'Courier New';
-            z-index: 100; border: 2px solid #0f0; box-shadow: 0 0 40px #0f0;
-            transition: opacity .5s ease;
+            position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+            background:#000; color:#0f0; padding:24px 48px; border-radius:16px;
+            font:bold 24px 'Courier New'; z-index:100; border:2px solid #0f0;
+            box-shadow:0 0 40px #0f0; transition:opacity .5s;
         }
     </style>
 </head>
 <body>
     <div id="map">
         <div id="info">Zoom: 1.00x | (0, 0)</div>
-        <div id="loading">ŁADOWANIE... RAZOR SHARP</div>
+        <div id="loading">ŁADOWANIE v9...</div>
         <canvas id="canvas"></canvas>
+
+        <!-- SUWAK ZOOMU -->
+        <div id="zoom-container">
+            <input type="range" id="zoom-slider" min="0.1" max="3" step="0.05" value="1">
+            <div id="zoom-label">Zoom: 1.00x</div>
+        </div>
     </div>
     <script src="script.js"></script>
 </body>
