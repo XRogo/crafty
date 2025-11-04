@@ -230,25 +230,27 @@ function clampView() {
 // === START ===
 canvas.style.cursor = 'grab';
 draw();
-// === REKSU MOBILE MODE ===
+// === REKSU MOBILE – PINCH-ZOOM 100% DZIAŁA ===
 canvas.addEventListener('touchstart', e => {
     if (e.touches.length === 1) {
         isDragging = true;
         startX = e.touches[0].clientX;
         startY = e.touches[0].clientY;
-        startViewX = viewX; startViewY = viewY;
-        canvas.style.cursor = 'grabbing';
+        startViewX = viewX;
+        startViewY = viewY;
     } else if (e.touches.length === 2) {
-        e.preventDefault();
+        e.preventDefault(); // KLUCZOWE!
         const t1 = e.touches[0], t2 = e.touches[1];
-        const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
-        window.lastPinchDist = dist;
+        window.lastPinchDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
         window.lastPinchZoom = zoom;
+        window.pinchCenterX = (t1.clientX + t2.clientX) / 2;
+        window.pinchCenterY = (t1.clientY + t2.clientY) / 2;
     }
 }, { passive: false });
 
 canvas.addEventListener('touchmove', e => {
-    e.preventDefault();
+    e.preventDefault(); // MUSI BYĆ!
+    
     if (e.touches.length === 1 && isDragging) {
         const ppb = getPixelScale().scale;
         const dx = (e.touches[0].clientX - startX) / ppb;
@@ -257,31 +259,41 @@ canvas.addEventListener('touchmove', e => {
         viewY = startViewY - dy;
         clampView();
         draw();
+        
     } else if (e.touches.length === 2) {
         const t1 = e.touches[0], t2 = e.touches[1];
         const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
         const centerX = (t1.clientX + t2.clientX) / 2;
         const centerY = (t1.clientY + t2.clientY) / 2;
-        
+
         const delta = dist / window.lastPinchDist;
-        const newZoom = window.lastPinchZoom * delta;
-        zoom = Math.max(0.3, Math.min(30, newZoom));
+        let newZoom = window.lastPinchZoom * delta;
+        newZoom = Math.max(0.3, Math.min(30, newZoom));
         
-        // Zoom w stronę palców
+        // Zapisz stary środek świata
         const oldPpb = getPixelScale().scale;
-        const worldX = viewX + (centerX - innerWidth/2) / oldPpb;
-        const worldZ = viewY + (centerY - innerHeight/2) / oldPpb;
+        const worldX = viewX + (window.pinchCenterX - innerWidth/2) / oldPpb;
+        const worldZ = viewY + (window.pinchCenterY - innerHeight/2) / oldPpb;
+
+        // Zmień zoom
+        zoom = newZoom;
         const newPpb = getPixelScale().scale;
-        viewX = worldX - (centerX - innerWidth/2) / newPpb;
-        viewY = worldZ - (centerY - innerHeight/2) / newPpb;
-        
+
+        // Przelicz widok
+        viewX = worldX - (window.pinchCenterX - innerWidth/2) / newPpb;
+        viewY = worldZ - (window.pinchCenterY - innerHeight/2) / newPpb;
+
         clampView();
         draw();
+
+        // Zapamiętaj nowe wartości
         window.lastPinchDist = dist;
+        window.lastPinchZoom = zoom;
+        window.pinchCenterX = centerX;
+        window.pinchCenterY = centerY;
     }
 }, { passive: false });
 
 canvas.addEventListener('touchend', () => {
     isDragging = false;
-    canvas.style.cursor = 'grab';
 });
