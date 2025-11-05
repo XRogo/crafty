@@ -1,8 +1,8 @@
 /* ==============================================================
-   MAPA MINECRAFT v14 – MOBILE & DESKTOP PERFECTION
-   - ZERO opóźnień poza edycją
-   - W edycji: punkt = przesuwaj punkt, reszta = przesuwaj mapę
-   - Tap = dodaj / usuń / dodaj na linii
+   MAPA MINECRAFT v15 – MOBILE & DESKTOP ULTIMATE
+   - TAP = DODAJ / USUŃ
+   - PRZYTRZYMAJ = PRZESUŃ PUNKT LUB MAPĘ
+   - ZERO opóźnień
    ============================================================== */
 
 const BLOCKS_PER_TILE = { 256: 256, 512: 1024, 1024: 4096 };
@@ -99,7 +99,7 @@ function calculateCentroid(points) {
     return [x / points.length, z / points.length];
 }
 
-// === RYSOWANIE ===
+// === RYSOWANIE (BEZ ZMIAN) ===
 function drawPolygons() {
     ctx.save();
     ctx.scale(pixelRatio, pixelRatio);
@@ -109,7 +109,6 @@ function drawPolygons() {
     ctx.scale(ppb, ppb);
     ctx.translate(-viewX, -viewY);
 
-    // Poligony stałe
     polygons.forEach(p => {
         if (!window.visibleCategories?.[p.category]) return;
         if (!p.points?.length) return;
@@ -134,7 +133,6 @@ function drawPolygons() {
         }
     });
 
-    // Temp poligon
     if (isDrawing && tempPoints.length > 0) {
         ctx.beginPath();
         tempPoints.forEach(([x, z], i) => i === 0 ? ctx.moveTo(x, z) : ctx.lineTo(x, z));
@@ -196,7 +194,7 @@ function drawPolygons() {
 
 setInterval(() => { blink = !blink; if (isDrawing) draw(); }, 500);
 
-// === RESIZE, TILES, ZOOM ===
+// === RESIZE, TILES, ZOOM (BEZ ZMIAN) ===
 function resize() {
     pixelRatio = window.devicePixelRatio || 1;
     canvas.width = innerWidth * pixelRatio;
@@ -337,8 +335,6 @@ function startInteraction(e) {
             const [sx, sz] = worldToScreen(px, pz);
             if (Math.hypot(sx - clientX, sz - clientY) < 30) {
                 hoverPoint = i;
-                selectedPoint = i;
-                isDraggingPoint = true;
                 return;
             }
         }
@@ -368,15 +364,15 @@ function moveInteraction(e) {
     const elapsed = Date.now() - touchStartTime;
 
     if (isDrawing) {
-        if (isDraggingPoint) {
+        if (hoverPoint !== -1) {
+            // Przytrzymanie na punkcie → przesuwaj
+            isDraggingPoint = true;
             const [wx, wz] = screenToWorld(clientX, clientY);
-            tempPoints[selectedPoint] = [Math.round(wx), Math.round(wz)];
+            tempPoints[hoverPoint] = [Math.round(wx), Math.round(wz)];
         } else if (elapsed > 500 && !isPanning) {
             isPanning = true;
-            isLongPress = true;
         }
     } else {
-        // Poza edycją – przesuwanie OD RAZU
         isPanning = true;
     }
 
@@ -414,7 +410,6 @@ function endInteraction(e) {
     isPanning = false;
     isLongPress = false;
     isDraggingPoint = false;
-    selectedPoint = -1;
     hoverPoint = -1;
     hoverEdge = -1;
     edgePoint = null;
@@ -457,7 +452,7 @@ closeBtn.addEventListener('click', () => { editorPanel.style.display = 'none'; o
 
 document.querySelectorAll('.cat-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-        document.querySelectorAll('.cat-btn').forEach(b => b.style.background = '');
+        document.querySelectorAll('.cat-btn').forMore(b => b.style.background = '');
         btn.style.background = '#0f0'; btn.style.color = '#000';
         editorConfig.category = parseInt(btn.dataset.cat);
         if (editorConfig.category === 3) {
@@ -485,7 +480,7 @@ document.getElementById('startDrawing').addEventListener('click', () => {
     isDrawing = true;
     tempPoints = [];
     canvas.style.cursor = 'crosshair';
-    info.textContent = 'Tap=dodaj | tap punkt=usuń | przytrzymaj punkt=przesuń';
+    info.textContent = 'Tap=dodaj | tap punkt=usuń | przytrzymaj=przesuń';
     draw();
 });
 
