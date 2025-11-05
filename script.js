@@ -1,9 +1,8 @@
 /* ==============================================================
-   MAPA MINECRAFT v10 – FINALNY EDYTOR
-   - POLIGONY Z POZYCJE.JS WIDOCZNE
-   - ZOOM 0.1x → 40x
-   - ŁADNY UI
-   - ŚRODKOWY SCROLL = PRZESUWANIE
+   MAPA MINECRAFT v12 – MOBILE + DESKTOP FULL
+   - ZOOM PALCAMI
+   - PRZESUWANIE MAPY W RYSOWANIU
+   - USUWANIE I PRZESUWANIE PUNKTÓW
    ============================================================== */
 
 const BLOCKS_PER_TILE = { 256: 256, 512: 1024, 1024: 4096 };
@@ -24,7 +23,6 @@ const openBtn = document.getElementById('open-editor-btn');
 const editorPanel = document.getElementById('editor-panel');
 const closeBtn = document.getElementById('close-editor');
 
-// === POLIGONY – TERAZ NA PEWNO SIĘ WCZYTAJĄ! ===
 let polygons = [];
 if (window.polygonsData && Array.isArray(window.polygonsData)) {
     polygons = window.polygonsData.map(p => ({
@@ -55,13 +53,16 @@ let editorConfig = {
 
 let zoom = 1;
 let viewX = 0, viewY = 0;
-let isPanning = false;
-let panStartX, panStartY, panStartViewX, panStartViewY;
-let isDragging = false;
-let dragStartX, dragStartY, dragStartViewX, dragStartViewY;
 let pixelRatio = 1;
 const cache = new Map();
 let loadedTiles = 0;
+
+// === TOUCH & MOUSE ===
+let lastTouchTime = 0;
+let touchStartTime = 0;
+let isPanning = false;
+let panStart = { x: 0, y: 0, viewX: 0, viewY: 0 };
+let isDraggingPoint = false;
 
 // === FUNKCJE ===
 function worldToScreen(x, z) {
@@ -70,13 +71,13 @@ function worldToScreen(x, z) {
     return [cx + (x - viewX) * ppb, cy + (z - viewY) * ppb];
 }
 
-function screenToWorld(mx, my) {
+function screenToWorld(x, y) {
     const rect = canvas.getBoundingClientRect();
-    const x = mx - rect.left;
-    const y = my - rect.top;
+    const mx = x - rect.left;
+    const my = y - rect.top;
     const { scale: ppb } = getPixelScale();
     const cx = innerWidth / 2, cy = innerHeight / 2;
-    return [viewX + (x - cx) / ppb, viewY + (y - cy) / ppb];
+    return [viewX + (mx - cx) / ppb, viewY + (my - cy) / ppb];
 }
 
 function pointDistanceToSegment(px, pz, x1, z1, x2, z2) {
@@ -97,7 +98,7 @@ function calculateCentroid(points) {
     return [x / points.length, z / points.length];
 }
 
-// === RYSOWANIE POLIGONÓW ===
+// === RYSOWANIE ===
 function drawPolygons() {
     ctx.save();
     ctx.scale(pixelRatio, pixelRatio);
@@ -107,41 +108,41 @@ function drawPolygons() {
     ctx.scale(ppb, ppb);
     ctx.translate(-viewX, -viewY);
 
-    // RYSUJ WSZYSTKIE POLIGONY
-    [...polygons, ...(isDrawing ? [{
-        points: tempPoints,
-        lineColor: editorConfig.lineColor,
-        fillColor: editorConfig.fillColor,
-        closePath: editorConfig.closePath,
-        name: editorConfig.name,
-        category: editorConfig.category
-    }] : [])].forEach(p => {
-        if (p.points.length < 2) return;
+    polygons.forEach(p => {
         if (!window.visibleCategories?.[p.category]) return;
+        if (!p.points?.length) return;
 
+        const { points, lineColor, fillColor, closePath, name, category } = p;
         ctx.beginPath();
-        p.points.forEach(([x, z], i) => i === 0 ? ctx.moveTo(x, z) : ctx.lineTo(x, z));
-        if (p.closePath && p.points.length > 2) ctx.closePath();
-
-        ctx.fillStyle = p.category === 1 ? p.fillColor : 'transparent';
+        points.forEach(([x, z], i) => i === 0 ? ctx.moveTo(x, z) : ctx.lineTo(x, z));
+        if (closePath && category === 1) ctx.closePath();
+        ctx.fillStyle = category === 1 ? fillColor : 'transparent';
         ctx.fill();
-        ctx.strokeStyle = p.lineColor;
-        ctx.lineWidth = p.category === 1 ? 2.5/zoom : 6/zoom;
+        ctx.strokeStyle = lineColor;
+        ctx.lineWidth = category === 1 ? 2.5/zoom : 6/zoom;
         ctx.stroke();
 
-        if (p.name && zoom > 2) {
-            const [cx, cz] = calculateCentroid(p.points);
-            ctx.font = `${Math.max(10, 14/zoom)}px Arial`;
+        if (name && zoom > 2) {
+            const [cx, cz] = calculateCentroid(points);
+            ctx.font = `${14/zoom}px Arial`;
             ctx.fillStyle = 'white';
             ctx.strokeStyle = 'black';
-            ctx.lineWidth = 3/zoom;
-            ctx.strokeText(p.name, cx, cz);
-            ctx.fillText(p.name, cx, cz);
+            ctx.lineWidth = 2/zoom;
+            ctx.strokeText(name, cx, cz);
+            ctx.fillText(name, cx, cz);
         }
     });
 
-    // PUNKTY TEMP
-    if (isDrawing) {
+    if (isDrawing && tempPoints.length > 0) {
+        ctx.beginPath();
+        tempPoints.forEach(([x, z], i) => i === 0 ? ctx.moveTo(x, z) : ctx.lineTo(x, z));
+        if (editorConfig.closePath && tempPoints.length > 2) ctx.closePath();
+        ctx.fillStyle = editorConfig.fillColor;
+        ctx.fill();
+        ctx.strokeStyle = editorConfig.lineColor;
+        ctx.lineWidth = 3/zoom;
+        ctx.stroke();
+
         tempPoints.forEach(([x, z], i) => {
             const isLast = i === tempPoints.length - 1;
             const isHover = i === hoverPoint;
@@ -168,7 +169,7 @@ function drawPolygons() {
 
         if (tempPoints.length > 0) {
             const [lx, lz] = tempPoints[tempPoints.length - 1];
-            const [mx, mz] = screenToWorld(window.lastMouseX, window.lastMouseY);
+            const [mx, mz] = screenToWorld(window.lastX || 0, window.lastY || 0);
             ctx.setLineDash([5/zoom, 5/zoom]);
             ctx.beginPath();
             ctx.moveTo(lx, lz);
@@ -182,7 +183,6 @@ function drawPolygons() {
 
     ctx.restore();
 
-    // + W ROGU
     if (isDrawing) {
         ctx.fillStyle = '#0f0';
         ctx.strokeStyle = '#000';
@@ -195,7 +195,7 @@ function drawPolygons() {
 
 setInterval(() => { blink = !blink; if (isDrawing) draw(); }, 500);
 
-// === RESIZE ===
+// === RESIZE, ZOOM, TILES – BEZ ZMIAN ===
 function resize() {
     pixelRatio = window.devicePixelRatio || 1;
     canvas.width = innerWidth * pixelRatio;
@@ -208,7 +208,6 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
-// === ZOOM ===
 function getLevel() {
     for (const lvl of LEVELS) if (zoom >= lvl.minZoom && zoom <= lvl.maxZoom) return lvl;
     return LEVELS[2];
@@ -263,7 +262,7 @@ function draw() {
                 const bz = ty * bpt;
                 const rx = cx + (bx - viewX) * ppb;
                 const ry = cy + (bz - viewY) * ppb;
-                ctx.drawImage(img, Math.round(rx*10)/10, Math.round(ry*10)/10, tilePixelSize, tilePixelSize);
+                ctx.drawImage(img, rx, ry, tilePixelSize, tilePixelSize);
             } else if (!cache.has(key)) loadTile(tx, ty, level);
         }
     }
@@ -272,8 +271,8 @@ function draw() {
     drawPolygons();
 
     const rect = canvas.getBoundingClientRect();
-    const mx = (window.lastMouseX || cx) - rect.left;
-    const my = (window.lastMouseY || cy) - rect.top;
+    const mx = (window.lastX || cx) - rect.left;
+    const my = (window.lastY || cy) - rect.top;
     const wx = viewX + (mx - cx) / ppb;
     const wz = viewY + (my - cy) / ppb;
     info.textContent = `(${Math.round(wx)}, ${Math.round(wz)})`;
@@ -281,7 +280,8 @@ function draw() {
     slider.value = zoom;
 }
 
-// === ZOOM KOŁEM ===
+// === ZOOM KOŁEM / PALCAMI ===
+let lastDist = 0;
 canvas.addEventListener('wheel', e => {
     e.preventDefault();
     const rect = canvas.getBoundingClientRect();
@@ -301,82 +301,176 @@ canvas.addEventListener('wheel', e => {
     draw();
 }, { passive: false });
 
-// === PASEK ZOOMU ===
-slider.addEventListener('input', e => {
-    zoom = parseFloat(e.target.value);
+function handlePinch(e) {
+    if (e.touches.length !== 2) return;
+    e.preventDefault();
+    const t1 = e.touches[0];
+    const t2 = e.touches[1];
+    const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+    if (lastDist === 0) { lastDist = dist; return; }
+
+    const delta = (dist - lastDist) / lastDist;
+    const rect = canvas.getBoundingClientRect();
+    const mx = (t1.clientX + t2.clientX) / 2 - rect.left;
+    const my = (t1.clientY + t2.clientY) / 2 - rect.top;
+    const oldPpb = getPixelScale().scale;
+    const worldX = viewX + (mx - innerWidth/2) / oldPpb;
+    const worldZ = viewY + (my - innerHeight/2) / oldPpb;
+
+    zoom = Math.max(0.1, Math.min(40, zoom * (1 + delta * 3)));
+    slider.value = zoom;
+
+    const newPpb = getPixelScale().scale;
+    viewX = worldX - (mx - innerWidth/2) / newPpb;
+    viewY = worldZ - (my - innerHeight/2) / newPpb;
+    clampView();
+    lastDist = dist;
     draw();
+}
+
+canvas.addEventListener('touchstart', e => {
+    if (e.touches.length === 2) { lastDist = 0; handlePinch(e); }
+    else if (e.touches.length === 1) {
+        touchStartTime = Date.now();
+        const touch = e.touches[0];
+        window.lastX = touch.clientX;
+        window.lastY = touch.clientY;
+        panStart = { x: touch.clientX, y: touch.clientY, viewX, viewY };
+        isPanning = false;
+    }
+}, { passive: false });
+
+canvas.addEventListener('touchmove', e => {
+    if (e.touches.length === 2) { handlePinch(e); return; }
+    if (e.touches.length !== 1) return;
+    e.preventDefault();
+
+    const touch = e.touches[0];
+    window.lastX = touch.clientX;
+    window.lastY = touch.clientY;
+
+    const elapsed = Date.now() - touchStartTime;
+    if (elapsed > 500 && !isPanning) {
+        isPanning = true;
+        canvas.style.cursor = 'grabbing';
+    }
+
+    if (isPanning) {
+        const ppb = getPixelScale().scale;
+        viewX = panStart.viewX - (touch.clientX - panStart.x) / ppb;
+        viewY = panStart.viewY - (touch.clientY - panStart.y) / ppb;
+        clampView();
+    }
+
+    if (isDrawing && !isPanning) {
+        const [wx, wz] = screenToWorld(touch.clientX, touch.clientY);
+        if (selectedPoint !== -1) {
+            tempPoints[selectedPoint] = [Math.round(wx), Math.round(wz)];
+        }
+    }
+    draw();
+}, { passive: false });
+
+canvas.addEventListener('touchend', e => {
+    if (e.touches.length === 0) {
+        lastDist = 0;
+        const elapsed = Date.now() - touchStartTime;
+        if (elapsed < 500 && !isPanning) {
+            handleClick(window.lastX, window.lastY);
+        }
+        isPanning = false;
+        canvas.style.cursor = isDrawing ? 'crosshair' : 'grab';
+    }
 });
 
-// === INTERAKCJA ===
-canvas.addEventListener('mousedown', e => {
-    if (e.button === 1) { // ŚRODKOWY
-        if (isDrawing) {
-            isPanning = true;
-            panStartX = e.clientX;
-            panStartY = e.clientY;
-            panStartViewX = viewX;
-            panStartViewY = viewY;
-            canvas.style.cursor = 'grabbing';
-        }
-        return;
-    }
-
-    if (e.button !== 0) return;
-
-    if (isDrawing && e.clientX < 70 && e.clientY < 80) {
-        savePolygon();
-        return;
-    }
+// === KLIKNIĘCIE (DESKTOP + MOBILE) ===
+function handleClick(clientX, clientY) {
+    if (isDrawing && clientX < 70 && clientY < 80) { savePolygon(); return; }
 
     if (isDrawing) {
+        const [wx, wz] = screenToWorld(clientX, clientY);
         if (edgePoint) {
             tempPoints.splice(edgePoint.edge + 1, 0, [Math.round(edgePoint.x), Math.round(edgePoint.z)]);
             selectedPoint = edgePoint.edge + 1;
         } else if (hoverPoint !== -1) {
             selectedPoint = hoverPoint;
+            isDraggingPoint = true;
         } else {
-            const [wx, wz] = screenToWorld(e.clientX, e.clientY);
             tempPoints.push([Math.round(wx), Math.round(wz)]);
         }
     } else {
-        isDragging = true;
-        dragStartX = e.clientX;
-        dragStartY = e.clientY;
-        dragStartViewX = viewX;
-        dragStartViewY = viewY;
+        isPanning = true;
+        panStart = { x: clientX, y: clientY, viewX, viewY };
+    }
+    draw();
+}
+
+canvas.addEventListener('mousedown', e => {
+    if (e.button !== 0) return;
+    touchStartTime = Date.now();
+    window.lastX = e.clientX;
+    window.lastY = e.clientY;
+    panStart = { x: e.clientX, y: e.clientY, viewX, viewY };
+    isPanning = false;
+});
+
+window.addEventListener('mousemove', e => {
+    window.lastX = e.clientX;
+    window.lastY = e.clientY;
+
+    const elapsed = Date.now() - touchStartTime;
+    if (elapsed > 500 && !isPanning) {
+        isPanning = true;
         canvas.style.cursor = 'grabbing';
+    }
+
+    if (isPanning) {
+        const ppb = getPixelScale().scale;
+        viewX = panStart.viewX - (e.clientX - panStart.x) / ppb;
+        viewY = panStart.viewY - (e.clientY - panStart.y) / ppb;
+        clampView();
+    }
+
+    if (isDrawing && !isPanning) {
+        const [wx, wz] = screenToWorld(e.clientX, e.clientY);
+        if (selectedPoint !== -1) {
+            tempPoints[selectedPoint] = [Math.round(wx), Math.round(wz)];
+        }
     }
     draw();
 });
 
-window.addEventListener('mousemove', e => {
-    window.lastMouseX = e.clientX;
-    window.lastMouseY = e.clientY;
-
-    if (isPanning && isDrawing) {
-        const ppb = getPixelScale().scale;
-        viewX = panStartViewX - (e.clientX - panStartX) / ppb;
-        viewY = panStartViewY - (e.clientY - panStartY) / ppb;
-        clampView();
+window.addEventListener('mouseup', e => {
+    if (e.button !== 0) return;
+    const elapsed = Date.now() - touchStartTime;
+    if (elapsed < 500 && !isPanning) {
+        handleClick(e.clientX, e.clientY);
     }
+    isPanning = false;
+    isDraggingPoint = false;
+    canvas.style.cursor = isDrawing ? 'crosshair' : 'grab';
+});
 
-    if (isDragging && !isDrawing) {
-        const ppb = getPixelScale().scale;
-        viewX = dragStartViewX - (e.clientX - dragStartX) / ppb;
-        viewY = dragStartViewY - (e.clientY - dragStartY) / ppb;
-        clampView();
+// === USUWANIE PUNKTÓW (DOTYK) ===
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+canvas.addEventListener('dblclick', e => {
+    e.preventDefault();
+    if (isDrawing && hoverPoint !== -1) {
+        tempPoints.splice(hoverPoint, 1);
+        draw();
     }
+});
 
-    if (isDrawing && !isPanning && !isDragging) {
+// === HOVER ===
+canvas.addEventListener('mousemove', e => {
+    if (isDrawing && !isPanning) {
         const [wx, wz] = screenToWorld(e.clientX, e.clientY);
-        hoverPoint = -1;
-        hoverEdge = -1;
-        edgePoint = null;
+        hoverPoint = -1; hoverEdge = -1; edgePoint = null;
 
         for (let i = 0; i < tempPoints.length; i++) {
             const [px, pz] = tempPoints[i];
             const [sx, sz] = worldToScreen(px, pz);
-            if (Math.hypot(sx - e.clientX, sz - e.clientY) < 15) {
+            if (Math.hypot(sx - e.clientX, sz - e.clientY) < 20) {
                 hoverPoint = i;
                 break;
             }
@@ -387,69 +481,25 @@ window.addEventListener('mousemove', e => {
                 const a = tempPoints[i];
                 const b = tempPoints[i + 1];
                 const { dist, x, z } = pointDistanceToSegment(wx, wz, a[0], a[1], b[0], b[1]);
-                if (dist < 12 / getPixelScale().scale) {
+                if (dist < 15 / getPixelScale().scale) {
                     hoverEdge = i;
                     edgePoint = { x, z, edge: i };
                     break;
                 }
             }
         }
-
-        if (selectedPoint !== -1) {
-            tempPoints[selectedPoint] = [Math.round(wx), Math.round(wz)];
-        }
     }
     draw();
 });
 
-window.addEventListener('mouseup', e => {
-    if (e.button === 1) isPanning = false;
-    if (e.button === 0) {
-        isDragging = false;
-        selectedPoint = -1;
-    }
-    canvas.style.cursor = isDrawing ? 'crosshair' : 'grab';
-});
-
-canvas.addEventListener('contextmenu', e => {
-    e.preventDefault();
-    if (isDrawing && hoverPoint !== -1) {
-        tempPoints.splice(hoverPoint, 1);
-        draw();
-    }
-});
-
-function clampView() {
-    viewX = Math.max(-WORLD_SIZE, Math.min(WORLD_SIZE, viewX));
-    viewY = Math.max(-WORLD_SIZE, Math.min(WORLD_SIZE, viewY));
-}
-
-// === ZAPIS ===
+// === RESZTA (ZAPIS, UI) ===
 function savePolygon() {
     if (tempPoints.length < 3) return;
-    const poly = {
-        points: tempPoints,
-        lineColor: editorConfig.lineColor,
-        fillColor: editorConfig.fillColor,
-        closePath: editorConfig.closePath,
-        name: editorConfig.name || 'Nowy',
-        category: editorConfig.category
-    };
+    const poly = { ...editorConfig, points: tempPoints, name: editorConfig.name || 'Nowy' };
     polygons.push(poly);
-    const code = `{
-    points: ${JSON.stringify(poly.points)},
-    lineColor: '${poly.lineColor}',
-    fillColor: '${poly.fillColor}',
-    closePath: ${poly.closePath},
-    name: '${poly.name}',
-    category: ${poly.category}
-},`;
-    navigator.clipboard.writeText(code).then(() => {
-        alert('SKOPIOWANO! Wklej do pozycje.js');
-    }).catch(() => prompt('SKOPIUJ:', code));
-    isDrawing = false;
-    tempPoints = [];
-    edgePoint = null;
+    const code = JSON.stringify(poly, null, 4).replace(/^/gm, '    ').trim();
+    navigator.clipboard.writeText(`{\n${code}\n},`).then(() => alert('SKOPIOWANO!')).catch(() => prompt('WKLEJ:', code));
+    isDrawing = false; tempPoints = []; edgePoint = null;
     canvas.style.cursor = 'grab';
     editorPanel.style.display = 'none';
     openBtn.style.display = 'block';
@@ -457,24 +507,20 @@ function savePolygon() {
     draw();
 }
 
-// === EDYTOR UI ===
-openBtn.addEventListener('click', () => {
-    editorPanel.style.display = 'block';
-    openBtn.style.display = 'none';
-});
+function clampView() {
+    viewX = Math.max(-WORLD_SIZE, Math.min(WORLD_SIZE, viewX));
+    viewY = Math.max(-WORLD_SIZE, Math.min(WORLD_SIZE, viewY));
+}
 
-closeBtn.addEventListener('click', () => {
-    editorPanel.style.display = 'none';
-    openBtn.style.display = 'block';
-});
+// UI
+openBtn.addEventListener('click', () => { editorPanel.style.display = 'block'; openBtn.style.display = 'none'; });
+closeBtn.addEventListener('click', () => { editorPanel.style.display = 'none'; openBtn.style.display = 'block'; });
 
 document.querySelectorAll('.cat-btn').forEach(btn => {
     btn.addEventListener('click', () => {
         document.querySelectorAll('.cat-btn').forEach(b => b.style.background = '');
-        btn.style.background = '#0f0';
-        btn.style.color = '#000';
+        btn.style.background = '#0f0'; btn.style.color = '#000';
         editorConfig.category = parseInt(btn.dataset.cat);
-
         if (editorConfig.category === 3) {
             editorConfig.lineColor = '#ffffff99';
             editorConfig.fillColor = '#ffffff33';
@@ -492,9 +538,7 @@ document.getElementById('lineColor').addEventListener('input', e => {
     editorConfig.fillColor = hex + '33';
 });
 
-document.getElementById('polyName').addEventListener('input', e => {
-    editorConfig.name = e.target.value;
-});
+document.getElementById('polyName').addEventListener('input', e => editorConfig.name = e.target.value);
 
 document.getElementById('startDrawing').addEventListener('click', () => {
     editorPanel.style.display = 'none';
@@ -502,14 +546,13 @@ document.getElementById('startDrawing').addEventListener('click', () => {
     isDrawing = true;
     tempPoints = [];
     canvas.style.cursor = 'crosshair';
-    info.textContent = 'Rysuj: lewy=punkt | scroll=przesuń | +=zapisz';
+    info.textContent = 'Rysuj: <0.5s=punkt | >0.5s=przesuń | +=zapisz';
     draw();
 });
 
 window.addEventListener('keydown', e => {
     if (e.key === 'Escape' && isDrawing) {
-        isDrawing = false;
-        tempPoints = [];
+        isDrawing = false; tempPoints = [];
         canvas.style.cursor = 'grab';
         editorPanel.style.display = 'none';
         openBtn.style.display = 'block';
@@ -517,6 +560,6 @@ window.addEventListener('keydown', e => {
     }
 });
 
-// === START ===
+slider.addEventListener('input', e => { zoom = parseFloat(e.target.value); draw(); });
 canvas.style.cursor = 'grab';
 draw();
