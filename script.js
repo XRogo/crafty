@@ -1,8 +1,8 @@
 /* ==============================================================
-   MAPA MINECRAFT v15 – MOBILE & DESKTOP ULTIMATE
-   - TAP = DODAJ / USUŃ
-   - PRZYTRZYMAJ = PRZESUŃ PUNKT LUB MAPĘ
-   - ZERO opóźnień
+   MAPA MINECRAFT v16 – MOBILE ULTIMATE
+   - 1 KLIK = DODAJ PUNKT (bez czekania!)
+   - 0.2s przytrzymanie = przesuwanie mapy
+   - Tap punkt = usuń
    ============================================================== */
 
 const BLOCKS_PER_TILE = { 256: 256, 512: 1024, 1024: 4096 };
@@ -12,6 +12,7 @@ const LEVELS = [
     { size: 256,  folder: 2, minZoom: 0.70, maxZoom: 40.00 }
 ];
 const WORLD_SIZE = 10000;
+const LONG_PRESS_DELAY = 200; // 0.2 sekundy!
 
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
@@ -37,7 +38,6 @@ if (window.polygonsData && Array.isArray(window.polygonsData)) {
 
 let isDrawing = false;
 let tempPoints = [];
-let selectedPoint = -1;
 let hoverPoint = -1;
 let hoverEdge = -1;
 let edgePoint = null;
@@ -92,13 +92,6 @@ function pointDistanceToSegment(px, pz, x1, z1, x2, z2) {
     return { dist: Math.hypot(px - xx, pz - zz), x: xx, z: zz, param };
 }
 
-function calculateCentroid(points) {
-    if (!points.length) return [0, 0];
-    let x = 0, z = 0;
-    points.forEach(p => { x += p[0]; z += p[1]; });
-    return [x / points.length, z / points.length];
-}
-
 // === RYSOWANIE (BEZ ZMIAN) ===
 function drawPolygons() {
     ctx.save();
@@ -145,10 +138,9 @@ function drawPolygons() {
 
         tempPoints.forEach(([x, z], i) => {
             const isLast = i === tempPoints.length - 1;
-            const isSel = i === selectedPoint;
             ctx.beginPath();
             ctx.arc(x, z, 6/zoom, 0, Math.PI*2);
-            ctx.fillStyle = isSel ? '#ffff00' : '#ff0000';
+            ctx.fillStyle = '#ff0000';
             if (isLast && blink) ctx.fillStyle = '#00ffff';
             ctx.fill();
             ctx.strokeStyle = '#000';
@@ -165,19 +157,6 @@ function drawPolygons() {
             ctx.lineWidth = 2/zoom;
             ctx.stroke();
         }
-
-        if (tempPoints.length > 0) {
-            const [lx, lz] = tempPoints[tempPoints.length - 1];
-            const [mx, mz] = screenToWorld(lastX, lastY);
-            ctx.setLineDash([5/zoom, 5/zoom]);
-            ctx.beginPath();
-            ctx.moveTo(lx, lz);
-            ctx.lineTo(mx, mz);
-            ctx.strokeStyle = '#ffffff88';
-            ctx.lineWidth = 1.5/zoom;
-            ctx.stroke();
-            ctx.setLineDash([]);
-        }
     }
 
     ctx.restore();
@@ -192,9 +171,16 @@ function drawPolygons() {
     }
 }
 
+function calculateCentroid(points) {
+    if (!points.length) return [0, 0];
+    let x = 0, z = 0;
+    points.forEach(p => { x += p[0]; z += p[1]; });
+    return [x / points.length, z / points.length];
+}
+
 setInterval(() => { blink = !blink; if (isDrawing) draw(); }, 500);
 
-// === RESIZE, TILES, ZOOM (BEZ ZMIAN) ===
+// === RESIZE, TILES, ZOOM – BEZ ZMIAN ===
 function resize() {
     pixelRatio = window.devicePixelRatio || 1;
     canvas.width = innerWidth * pixelRatio;
@@ -313,7 +299,7 @@ canvas.addEventListener('touchmove', e => {
     }
 }, { passive: false });
 
-// === GŁÓWNY DOTYK / MYSZ ===
+// === GŁÓWNY DOTYK ===
 function startInteraction(e) {
     const clientX = e.clientX || e.touches[0].clientX;
     const clientY = e.clientY || e.touches[0].clientY;
@@ -364,12 +350,11 @@ function moveInteraction(e) {
     const elapsed = Date.now() - touchStartTime;
 
     if (isDrawing) {
-        if (hoverPoint !== -1) {
-            // Przytrzymanie na punkcie → przesuwaj
+        if (hoverPoint !== -1 && elapsed > 50) {
             isDraggingPoint = true;
             const [wx, wz] = screenToWorld(clientX, clientY);
             tempPoints[hoverPoint] = [Math.round(wx), Math.round(wz)];
-        } else if (elapsed > 500 && !isPanning) {
+        } else if (elapsed > LONG_PRESS_DELAY && !isPanning && hoverPoint === -1) {
             isPanning = true;
         }
     } else {
@@ -389,7 +374,7 @@ function moveInteraction(e) {
 function endInteraction(e) {
     const elapsed = Date.now() - touchStartTime;
 
-    if (!isPanning && elapsed < 500) {
+    if (!isPanning && !isDraggingPoint && elapsed < LONG_PRESS_DELAY) {
         const clientX = lastX;
         const clientY = lastY;
 
@@ -426,7 +411,7 @@ canvas.addEventListener('mousedown', startInteraction);
 window.addEventListener('mousemove', moveInteraction);
 window.addEventListener('mouseup', endInteraction);
 
-// === RESZTA ===
+// === ZAPIS ===
 function savePolygon() {
     if (tempPoints.length < 3) return;
     const poly = { ...editorConfig, points: tempPoints, name: editorConfig.name || 'Nowy' };
@@ -446,13 +431,13 @@ function clampView() {
     viewY = Math.max(-WORLD_SIZE, Math.min(WORLD_SIZE, viewY));
 }
 
-// UI
+// === UI ===
 openBtn.addEventListener('click', () => { editorPanel.style.display = 'block'; openBtn.style.display = 'none'; });
 closeBtn.addEventListener('click', () => { editorPanel.style.display = 'none'; openBtn.style.display = 'block'; });
 
 document.querySelectorAll('.cat-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-        document.querySelectorAll('.cat-btn').forMore(b => b.style.background = '');
+        document.querySelectorAll('.cat-btn').forEach(b => b.style.background = '');
         btn.style.background = '#0f0'; btn.style.color = '#000';
         editorConfig.category = parseInt(btn.dataset.cat);
         if (editorConfig.category === 3) {
@@ -480,7 +465,7 @@ document.getElementById('startDrawing').addEventListener('click', () => {
     isDrawing = true;
     tempPoints = [];
     canvas.style.cursor = 'crosshair';
-    info.textContent = 'Tap=dodaj | tap punkt=usuń | przytrzymaj=przesuń';
+    info.textContent = 'Klik = dodaj | klik punkt = usuń | przytrzymaj = przesuń';
     draw();
 });
 
