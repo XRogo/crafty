@@ -1,8 +1,8 @@
 /* ==============================================================
-   MAPA MINECRAFT v16 – MOBILE ULTIMATE
-   - 1 KLIK = DODAJ PUNKT (bez czekania!)
-   - 0.2s przytrzymanie = przesuwanie mapy
-   - Tap punkt = usuń
+   MAPA MINECRAFT v17 – FINAL MOBILE PERFECTION
+   - KLIK = USUŃ PUNKT LUB DODAJ (kolejność: najpierw usuń!)
+   - 0.2s = przesuwanie mapy
+   - Przytrzymaj punkt = przesuwaj punkt
    ============================================================== */
 
 const BLOCKS_PER_TILE = { 256: 256, 512: 1024, 1024: 4096 };
@@ -12,7 +12,7 @@ const LEVELS = [
     { size: 256,  folder: 2, minZoom: 0.70, maxZoom: 40.00 }
 ];
 const WORLD_SIZE = 10000;
-const LONG_PRESS_DELAY = 200; // 0.2 sekundy!
+const LONG_PRESS_DELAY = 200; // 0.2s
 
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
@@ -92,7 +92,7 @@ function pointDistanceToSegment(px, pz, x1, z1, x2, z2) {
     return { dist: Math.hypot(px - xx, pz - zz), x: xx, z: zz, param };
 }
 
-// === RYSOWANIE (BEZ ZMIAN) ===
+// === RYSOWANIE ===
 function drawPolygons() {
     ctx.save();
     ctx.scale(pixelRatio, pixelRatio);
@@ -315,17 +315,17 @@ function startInteraction(e) {
         const [wx, wz] = screenToWorld(clientX, clientY);
         hoverPoint = -1; hoverEdge = -1; edgePoint = null;
 
-        // Sprawdź punkty
+        // Najpierw: sprawdź punkty
         for (let i = 0; i < tempPoints.length; i++) {
             const [px, pz] = tempPoints[i];
             const [sx, sz] = worldToScreen(px, pz);
             if (Math.hypot(sx - clientX, sz - clientY) < 30) {
                 hoverPoint = i;
-                return;
+                return; // Znalazł punkt → czekaj na kliknięcie
             }
         }
 
-        // Sprawdź linie
+        // Potem: sprawdź linie
         if (tempPoints.length > 1) {
             for (let i = 0; i < tempPoints.length - 1; i++) {
                 const a = tempPoints[i];
@@ -374,6 +374,7 @@ function moveInteraction(e) {
 function endInteraction(e) {
     const elapsed = Date.now() - touchStartTime;
 
+    // TYLKO jeśli to krótkie kliknięcie i nie przesuwaliśmy
     if (!isPanning && !isDraggingPoint && elapsed < LONG_PRESS_DELAY) {
         const clientX = lastX;
         const clientY = lastY;
@@ -381,17 +382,32 @@ function endInteraction(e) {
         if (isDrawing) {
             if (clientX < 70 && clientY < 80) {
                 savePolygon();
-            } else if (hoverPoint !== -1) {
-                tempPoints.splice(hoverPoint, 1);
-            } else if (edgePoint) {
-                tempPoints.splice(edgePoint.edge + 1, 0, [Math.round(edgePoint.x), Math.round(edgePoint.z)]);
-            } else {
-                const [wx, wz] = screenToWorld(clientX, clientY);
-                tempPoints.push([Math.round(wx), Math.round(wz)]);
+                return;
             }
+
+            // 1. Najpierw: usuń punkt, jeśli jest
+            if (hoverPoint !== -1) {
+                tempPoints.splice(hoverPoint, 1);
+                draw();
+                return;
+            }
+
+            // 2. Dodaj na linii
+            if (edgePoint) {
+                tempPoints.splice(edgePoint.edge + 1, 0, [Math.round(edgePoint.x), Math.round(edgePoint.z)]);
+                draw();
+                return;
+            }
+
+            // 3. W końcu: dodaj nowy punkt
+            const [wx, wz] = screenToWorld(clientX, clientY);
+            tempPoints.push([Math.round(wx), Math.round(wz)]);
+            draw();
+            return;
         }
     }
 
+    // Reset
     isPanning = false;
     isLongPress = false;
     isDraggingPoint = false;
@@ -413,16 +429,27 @@ window.addEventListener('mouseup', endInteraction);
 
 // === ZAPIS ===
 function savePolygon() {
-    if (tempPoints.length < 3) return;
+    if (tempPoints.length < 3) {
+        alert("Za mało punktów! Minimum 3.");
+        return;
+    }
     const poly = { ...editorConfig, points: tempPoints, name: editorConfig.name || 'Nowy' };
     polygons.push(poly);
     const code = JSON.stringify(poly, null, 4).replace(/^/gm, '    ').trim();
-    navigator.clipboard.writeText(`{\n${code}\n},`).then(() => alert('SKOPIOWANO!')).catch(() => prompt('WKLEJ:', code));
-    isDrawing = false; tempPoints = [];
+    const fullCode = `{\n${code}\n},`;
+    
+    navigator.clipboard.writeText(fullCode).then(() => {
+        alert('SKOPIOWANO DO SCHOWKA!\nWklej do pozycje.js');
+    }).catch(() => {
+        prompt('SKOPIUJ TO DO pozycje.js:', fullCode);
+    });
+
+    isDrawing = false;
+    tempPoints = [];
     canvas.style.cursor = 'grab';
     editorPanel.style.display = 'none';
     openBtn.style.display = 'block';
-    info.textContent = 'Zapisano!';
+    info.textContent = 'ZAPISANO!';
     draw();
 }
 
@@ -432,13 +459,20 @@ function clampView() {
 }
 
 // === UI ===
-openBtn.addEventListener('click', () => { editorPanel.style.display = 'block'; openBtn.style.display = 'none'; });
-closeBtn.addEventListener('click', () => { editorPanel.style.display = 'none'; openBtn.style.display = 'block'; });
+openBtn.addEventListener('click', () => { 
+    editorPanel.style.display = 'block'; 
+    openBtn.style.display = 'none'; 
+});
+closeBtn.addEventListener('click', () => { 
+    editorPanel.style.display = 'none'; 
+    openBtn.style.display = 'block'; 
+});
 
 document.querySelectorAll('.cat-btn').forEach(btn => {
     btn.addEventListener('click', () => {
         document.querySelectorAll('.cat-btn').forEach(b => b.style.background = '');
-        btn.style.background = '#0f0'; btn.style.color = '#000';
+        btn.style.background = '#0f0'; 
+        btn.style.color = '#000';
         editorConfig.category = parseInt(btn.dataset.cat);
         if (editorConfig.category === 3) {
             editorConfig.lineColor = '#ffffff99';
@@ -471,14 +505,19 @@ document.getElementById('startDrawing').addEventListener('click', () => {
 
 window.addEventListener('keydown', e => {
     if (e.key === 'Escape' && isDrawing) {
-        isDrawing = false; tempPoints = [];
+        isDrawing = false; 
+        tempPoints = []; 
         canvas.style.cursor = 'grab';
-        editorPanel.style.display = 'none';
-        openBtn.style.display = 'block';
+        editorPanel.style.display = 'none'; 
+        openBtn.style.display = 'block'; 
         draw();
     }
 });
 
-slider.addEventListener('input', e => { zoom = parseFloat(e.target.value); draw(); });
+slider.addEventListener('input', e => { 
+    zoom = parseFloat(e.target.value); 
+    draw(); 
+});
+
 canvas.style.cursor = 'grab';
 draw();
