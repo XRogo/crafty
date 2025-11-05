@@ -1,8 +1,8 @@
 /* ==============================================================
-   MAPA MINECRAFT v18 – PC + MOBILE = IDEALNIE
-   - PC: TYLKO po KLIKNIĘCIU + PRZYTRZYMANIU przesuwa mapę
-   - MOBILE: 0.2s = przesuwanie
-   - KLIK = dodaj/usuń punkt
+   MAPA MINECRAFT v19 – UNIWERSALNA DLA PC I MOBILE
+   - JEDEN KOD – DZIAŁA NA KOMPUTERZE I TELEFONIE
+   - KLIK/TAP = DODAJ/USUŃ
+   - PRZYTRZYMAJ = PRZESUWAJ
    ============================================================== */
 
 const BLOCKS_PER_TILE = { 256: 256, 512: 1024, 1024: 4096 };
@@ -12,7 +12,7 @@ const LEVELS = [
     { size: 256,  folder: 2, minZoom: 0.70, maxZoom: 40.00 }
 ];
 const WORLD_SIZE = 10000;
-const LONG_PRESS_DELAY = 200; // 0.2s na mobile
+const LONG_PRESS_DELAY = 200; // 0.2s
 
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
@@ -59,12 +59,15 @@ let loadedTiles = 0;
 
 // === STANY ===
 let isPanning = false;
-let isMouseDown = false; // tylko dla PC
+let isMouseDown = false;
 let panStart = { x: 0, y: 0, viewX: 0, viewY: 0 };
 let lastX = 0, lastY = 0;
 let touchStartTime = 0;
 let isLongPress = false;
 let isDraggingPoint = false;
+
+// === WYKRYWANIE URZĄDZENIA ===
+const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
 // === FUNKCJE ===
 function worldToScreen(x, z) {
@@ -91,6 +94,13 @@ function pointDistanceToSegment(px, pz, x1, z1, x2, z2) {
     const xx = x1 + param * C;
     const zz = z1 + param * D;
     return { dist: Math.hypot(px - xx, pz - zz), x: xx, z: zz, param };
+}
+
+function calculateCentroid(points) {
+    if (!points.length) return [0, 0];
+    let x = 0, z = 0;
+    points.forEach(p => { x += p[0]; z += p[1]; });
+    return [x / points.length, z / points.length];
 }
 
 // === RYSOWANIE ===
@@ -172,16 +182,9 @@ function drawPolygons() {
     }
 }
 
-function calculateCentroid(points) {
-    if (!points.length) return [0, 0];
-    let x = 0, z = 0;
-    points.forEach(p => { x += p[0]; z += p[1]; });
-    return [x / points.length, z / points.length];
-}
-
 setInterval(() => { blink = !blink; if (isDrawing) draw(); }, 500);
 
-// === RESIZE, TILES, ZOOM – BEZ ZMIAN ===
+// === RESIZE, TILES, ZOOM ===
 function resize() {
     pixelRatio = window.devicePixelRatio || 1;
     canvas.width = innerWidth * pixelRatio;
@@ -266,7 +269,7 @@ function draw() {
     slider.value = zoom;
 }
 
-// === ZOOM PALCAMI ===
+// === ZOOM ===
 let lastDist = 0;
 canvas.addEventListener('touchstart', e => {
     if (e.touches.length === 2) {
@@ -300,98 +303,7 @@ canvas.addEventListener('touchmove', e => {
     }
 }, { passive: false });
 
-// === GŁÓWNY DOTYK (MOBILE) ===
-function touchStart(e) {
-    const touch = e.touches[0];
-    touchStartTime = Date.now();
-    isLongPress = false;
-    isPanning = false;
-    isDraggingPoint = false;
-    lastX = touch.clientX;
-    lastY = touch.clientY;
-    panStart = { x: touch.clientX, y: touch.clientY, viewX, viewY };
-
-    if (isDrawing) detectHover(touch.clientX, touch.clientY);
-}
-
-function touchMove(e) {
-    const touch = e.touches[0];
-    lastX = touch.clientX;
-    lastY = touch.clientY;
-
-    const elapsed = Date.now() - touchStartTime;
-
-    if (isDrawing && hoverPoint !== -1 && elapsed > 50) {
-        isDraggingPoint = true;
-        const [wx, wz] = screenToWorld(touch.clientX, touch.clientY);
-        tempPoints[hoverPoint] = [Math.round(wx), Math.round(wz)];
-    } else if (elapsed > LONG_PRESS_DELAY && !isPanning && hoverPoint === -1) {
-        isPanning = true;
-    }
-
-    if (isPanning) {
-        const ppb = getPixelScale().scale;
-        viewX = panStart.viewX - (touch.clientX - panStart.x) / ppb;
-        viewY = panStart.viewY - (touch.clientY - panStart.y) / ppb;
-        clampView();
-    }
-
-    draw();
-}
-
-function touchEnd() {
-    const elapsed = Date.now() - touchStartTime;
-    if (!isPanning && !isDraggingPoint && elapsed < 300) {
-        handleClick(lastX, lastY);
-    }
-
-    resetStates();
-}
-
-// === MYSZKA (PC) ===
-canvas.addEventListener('mousedown', e => {
-    if (e.button !== 0) return;
-    isMouseDown = true;
-    lastX = e.clientX;
-    lastY = e.clientY;
-    panStart = { x: e.clientX, y: e.clientY, viewX, viewY };
-
-    if (isDrawing) detectHover(e.clientX, e.clientY);
-});
-
-window.addEventListener('mousemove', e => {
-    if (!isMouseDown) return;
-
-    lastX = e.clientX;
-    lastY = e.clientY;
-
-    if (isDrawing && hoverPoint !== -1) {
-        isDraggingPoint = true;
-        const [wx, wz] = screenToWorld(e.clientX, e.clientY);
-        tempPoints[hoverPoint] = [Math.round(wx), Math.round(wz)];
-    } else {
-        isPanning = true;
-        const ppb = getPixelScale().scale;
-        viewX = panStart.viewX - (e.clientX - panStart.x) / ppb;
-        viewY = panStart.viewY - (e.clientY - panStart.y) / ppb;
-        clampView();
-    }
-
-    draw();
-});
-
-window.addEventListener('mouseup', e => {
-    if (e.button !== 0) return;
-
-    if (isMouseDown && !isPanning && !isDraggingPoint) {
-        handleClick(e.clientX, e.clientY);
-    }
-
-    isMouseDown = false;
-    resetStates();
-});
-
-// === WSPÓLNE FUNKCJE ===
+// === HOVER I KLIK ===
 function detectHover(x, y) {
     const [wx, wz] = screenToWorld(x, y);
     hoverPoint = -1; hoverEdge = -1; edgePoint = null;
@@ -437,6 +349,128 @@ function handleClick(x, y) {
     draw();
 }
 
+// === MOBILE ===
+canvas.addEventListener('touchstart', e => {
+    e.preventDefault();
+    const touch = e.touches[0];
+    touchStartTime = Date.now();
+    isLongPress = false;
+    isPanning = false;
+    isDraggingPoint = false;
+    lastX = touch.clientX;
+    lastY = touch.clientY;
+    panStart = { x: touch.clientX, y: touch.clientY, viewX, viewY };
+    if (isDrawing) detectHover(touch.clientX, touch.clientY);
+}, { passive: false });
+
+canvas.addEventListener('touchmove', e => {
+    e.preventDefault();
+    const touch = e.touches[0];
+    lastX = touch.clientX;
+    lastY = touch.clientY;
+
+    const elapsed = Date.now() - touchStartTime;
+
+    if (isDrawing && hoverPoint !== -1 && elapsed > 50) {
+        isDraggingPoint = true;
+        const [wx, wz] = screenToWorld(touch.clientX, touch.clientY);
+        tempPoints[hoverPoint] = [Math.round(wx), Math.round(wz)];
+    } else if (elapsed > LONG_PRESS_DELAY && !isPanning && hoverPoint === -1) {
+        isPanning = true;
+    }
+
+    if (isPanning) {
+        const ppb = getPixelScale().scale;
+        viewX = panStart.viewX - (touch.clientX - panStart.x) / ppb;
+        viewY = panStart.viewY - (touch.clientY - panStart.y) / ppb;
+        clampView();
+    }
+
+    draw();
+}, { passive: false });
+
+canvas.addEventListener('touchend', e => {
+    const elapsed = Date.now() - touchStartTime;
+    if (!isPanning && !isDraggingPoint && elapsed < 300) {
+        handleClick(lastX, lastY);
+    }
+    resetStates();
+});
+
+// === PC ===
+canvas.addEventListener('mousedown', e => {
+    if (e.button !== 0) return;
+    isMouseDown = true;
+    lastX = e.clientX;
+    lastY = e.clientY;
+    panStart = { x: e.clientX, y: e.clientY, viewX, viewY };
+    if (isDrawing) detectHover(e.clientX, e.clientY);
+});
+
+window.addEventListener('mousemove', e => {
+    lastX = e.clientX;
+    lastY = e.clientY;
+
+    if (!isMouseDown) {
+        if (isDrawing) detectHover(e.clientX, e.clientY);
+        draw();
+        return;
+    }
+
+    if (isDrawing && hoverPoint !== -1) {
+        isDraggingPoint = true;
+        const [wx, wz] = screenToWorld(e.clientX, e.clientY);
+        tempPoints[hoverPoint] = [Math.round(wx), Math.round(wz)];
+    } else {
+        isPanning = true;
+        const ppb = getPixelScale().scale;
+        viewX = panStart.viewX - (e.clientX - panStart.x) / ppb;
+        viewY = panStart.viewY - (e.clientY - panStart.y) / ppb;
+        clampView();
+    }
+
+    draw();
+});
+
+window.addEventListener('mouseup', e => {
+    if (e.button !== 0) return;
+
+    if (isMouseDown && !isPanning && !isDraggingPoint) {
+        handleClick(e.clientX, e.clientY);
+    }
+
+    isMouseDown = false;
+    resetStates();
+});
+
+canvas.addEventListener('contextmenu', e => {
+    e.preventDefault();
+    if (isDrawing && hoverPoint !== -1) {
+        tempPoints.splice(hoverPoint, 1);
+        draw();
+    }
+});
+
+// === ZOOM KOŁEM ===
+canvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const oldPpb = getPixelScale().scale;
+    const worldX = viewX + (mx - innerWidth/2) / oldPpb;
+    const worldZ = viewY + (my - innerHeight/2) / oldPpb;
+
+    zoom = Math.max(0.1, Math.min(40, zoom + (e.deltaY > 0 ? -0.3 : 0.3)));
+    slider.value = zoom;
+
+    const newPpb = getPixelScale().scale;
+    viewX = worldX - (mx - innerWidth/2) / newPpb;
+    viewY = worldZ - (my - innerHeight/2) / newPpb;
+    clampView();
+    draw();
+}, { passive: false });
+
 function resetStates() {
     isPanning = false;
     isLongPress = false;
@@ -445,13 +479,7 @@ function resetStates() {
     hoverEdge = -1;
     edgePoint = null;
     canvas.style.cursor = isDrawing ? 'crosshair' : 'grab';
-    draw();
 }
-
-// === EVENTY MOBILE ===
-canvas.addEventListener('touchstart', touchStart, { passive: false });
-canvas.addEventListener('touchmove', touchMove, { passive: false });
-canvas.addEventListener('touchend', touchEnd);
 
 // === ZAPIS ===
 function savePolygon() {
@@ -525,7 +553,7 @@ document.getElementById('startDrawing').addEventListener('click', () => {
     isDrawing = true;
     tempPoints = [];
     canvas.style.cursor = 'crosshair';
-    info.textContent = 'Klik = dodaj | klik punkt = usuń';
+    info.textContent = isMobile ? 'Tap=dodaj | tap punkt=usuń | przytrzymaj=przesuń' : 'Klik=dodaj | prawy=usuń | przytrzymaj=przesuń';
     draw();
 });
 
