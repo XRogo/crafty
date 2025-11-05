@@ -1,8 +1,5 @@
 /* ==============================================================
-   MAPA MINECRAFT v19 – UNIWERSALNA DLA PC I MOBILE
-   - JEDEN KOD – DZIAŁA NA KOMPUTERZE I TELEFONIE
-   - KLIK/TAP = DODAJ/USUŃ
-   - PRZYTRZYMAJ = PRZESUWAJ
+   MAPA MINECRAFT v19 – PNG + WebP + WSZYSTKIE POZYCJE
    ============================================================== */
 
 const BLOCKS_PER_TILE = { 256: 256, 512: 1024, 1024: 4096 };
@@ -12,7 +9,7 @@ const LEVELS = [
     { size: 256,  folder: 2, minZoom: 0.70, maxZoom: 40.00 }
 ];
 const WORLD_SIZE = 10000;
-const LONG_PRESS_DELAY = 200; // 0.2s
+const LONG_PRESS_DELAY = 200;
 
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
@@ -207,18 +204,37 @@ function getPixelScale() {
     return { scale: tps / bpt, tilePixelSize: tps };
 }
 
+/* ---------- KLUCZOWA ZMIANA: próba PNG → WebP ---------- */
 function loadTile(tx, ty, level) {
     const key = `${level.folder}_${tx}_${ty}`;
     if (cache.has(key)) return cache.get(key);
-    const ext = (Math.abs(tx) <= 1 && Math.abs(ty) <= 1) ? 'png' : 'webp';
-    const img = new Image();
-    img.src = `tiles/${level.folder}/${tx}_${ty}.${ext}`;
-    const p = new Promise(r => {
-        img.onload = () => { cache.set(key, img); loadedTiles++; if (loadedTiles > 8) { loading.style.opacity = '0'; setTimeout(() => loading.style.display = 'none', 500); } r(img); };
-        img.onerror = () => { cache.set(key, null); r(null); };
+
+    const tryLoad = (ext) => {
+        const img = new Image();
+        img.src = `tiles/${level.folder}/${tx}_${ty}.${ext}`;
+        const p = new Promise(r => {
+            img.onload = () => {
+                cache.set(key, img);
+                loadedTiles++;
+                if (loadedTiles > 8) {
+                    loading.style.opacity = '0';
+                    setTimeout(() => loading.style.display = 'none', 500);
+                }
+                r(img);
+            };
+            img.onerror = () => r(null);
+        });
+        cache.set(key, p);
+        return p;
+    };
+
+    // Najpierw PNG, potem WebP
+    const png = tryLoad('png');
+    png.then(img => {
+        if (!img) tryLoad('webp');
     });
-    cache.set(key, p);
-    return p;
+
+    return png;
 }
 
 function draw() {
@@ -250,7 +266,9 @@ function draw() {
                 const rx = cx + (bx - viewX) * ppb;
                 const ry = cy + (bz - viewY) * ppb;
                 ctx.drawImage(img, rx, ry, tilePixelSize, tilePixelSize);
-            } else if (!cache.has(key)) loadTile(tx, ty, level);
+            } else if (!cache.has(key)) {
+                loadTile(tx, ty, level);
+            }
         }
     }
 
@@ -495,15 +513,11 @@ function savePolygon() {
 
     codeText.value = fullCode;
     codeModal.style.display = 'block';
-
-    // Tymczasowo zapisz poly, ale nie dodawaj jeszcze do polygons
     window.tempPoly = poly;
 }
 
-function finalizeSave(addToPolygons = true) {
-    if (addToPolygons) {
-        polygons.push(window.tempPoly);
-    }
+function finalizeSave(add = true) {
+    if (add) polygons.push(window.tempPoly);
     isDrawing = false;
     tempPoints = [];
     canvas.style.cursor = 'grab';
@@ -526,7 +540,6 @@ openBtn.addEventListener('click', () => {
     startDrawingBtn.textContent = isDrawing ? 'ZAKOŃCZ RYSOWANIE' : 'ROZPOCZNIJ RYSOWANIE';
     closePathToggle.textContent = editorConfig.closePath ? 'ON' : 'OFF';
     closePathToggle.style.background = editorConfig.closePath ? '#0f0' : '#f00';
-    // Wybierz kategorię
     document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('selected'));
     document.querySelector(`.cat-btn[data-cat="${editorConfig.category}"]`).classList.add('selected');
 });
@@ -594,27 +607,23 @@ startDrawingBtn.addEventListener('click', () => {
 
 window.addEventListener('keydown', e => {
     if (e.key === 'Escape' && isDrawing) {
-        isDrawing = false; 
-        tempPoints = []; 
+        isDrawing = false;
+        tempPoints = [];
         canvas.style.cursor = 'grab';
-        editorPanel.style.display = 'none'; 
-        openBtn.style.display = 'block'; 
+        editorPanel.style.display = 'none';
+        openBtn.style.display = 'block';
         draw();
     }
 });
 
-slider.addEventListener('input', e => { 
-    zoom = parseFloat(e.target.value); 
-    draw(); 
+slider.addEventListener('input', e => {
+    zoom = parseFloat(e.target.value);
+    draw();
 });
 
-// Modal events
+// === MODAL ===
 copyBtn.addEventListener('click', () => {
-    navigator.clipboard.writeText(codeText.value).then(() => {
-        alert('SKOPIOWANO!');
-    }).catch(() => {
-        prompt('WKLEJ DO pozycje.js:', codeText.value);
-    });
+    navigator.clipboard.writeText(codeText.value).then(() => alert('SKOPIOWANO!')).catch(() => prompt('WKLEJ DO pozycje.js:', codeText.value));
 });
 
 closeModalBtn.addEventListener('click', () => {

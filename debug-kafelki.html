@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapa MC + SIATKA KAFELKÓW</title>
+    <style>
+        *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+        html, body { width:100%; height:100%; overflow:hidden; background:#000; }
+        #map { width:100%; height:100%; position:relative; }
+        canvas { position:absolute; top:0; left:0; width:100%; height:100%; image-rendering:pixelated; }
+        #info, #tile-info {
+            position:absolute; z-index:100; background:rgba(0,0,0,0.9);
+            color:#0f0; padding:8px 14px; border:2px solid #0f0; border-radius:10px;
+            font:bold 14px 'Courier New'; text-shadow:0 0 10px #0f0;
+        }
+        #info { top:10px; left:50%; transform:translateX(-50%); }
+        #tile-info { bottom:20px; left:50%; transform:translateX(-50%); }
+        #toggle-grid {
+            position:absolute; top:15px; right:15px; z-index:999;
+            padding:10px 18px; background:#000; color:#0f0; border:2px solid #0f0;
+            border-radius:12px; font:bold 16px 'Courier New'; cursor:pointer;
+            box-shadow:0 0 20px #0f0; transition:all 0.3s;
+        }
+        #toggle-grid:hover { background:#0f0; color:#000; }
+    </style>
+</head>
+<body>
+    <div id="map">
+        <div id="info">Zoom: 1.00x | (0, 0)</div>
+        <div id="tile-info">Kafelek: 0_0 | folder: 2</div>
+        <button id="toggle-grid">SIATKA: OFF</button>
+        <canvas id="tiles"></canvas>
+        <canvas id="grid"></canvas>
+        <canvas id="main"></canvas>
+    </div>
+
+    <script src="pozycje.js"></script>
+    <script src="poligony.js"></script>
+    <script>
+        // === KONFIGURACJA ===
+        const BLOCKS_PER_TILE = { 256: 256, 512: 1024, 1024: 4096 };
+        const LEVELS = [
+            { size: 1024, folder: 0, minZoom: 0.10, maxZoom: 0.30 },
+            { size: 512,  folder: 1, minZoom: 0.30, maxZoom: 0.70 },
+            { size: 256,  folder: 2, minZoom: 0.70, maxZoom: 40.00 }
+        ];
+        const WORLD_SIZE = 10000;
+
+        // === CANVASY ===
+        const canvasTiles = document.getElementById('tiles');
+        const ctxTiles = canvasTiles.getContext('2d');
+        const canvasGrid = document.getElementById('grid');
+        const ctxGrid = canvasGrid.getContext('2d');
+        const canvasMain = document.getElementById('main');
+        const ctxMain = canvasMain.getContext('2d');
+
+        const info = document.getElementById('info');
+        const tileInfo = document.getElementById('tile-info');
+        const toggleBtn = document.getElementById('toggle-grid');
+
+        let showGrid = false;
+        let zoom = 1;
+        let viewX = 0, viewY = 0;
+        let pixelRatio = window.devicePixelRatio || 1;
+        const cache = new Map();
+        let loadedTiles = 0;
+
+        // === RESIZE ===
+        function resize() {
+            const w = innerWidth * pixelRatio;
+            const h = innerHeight * pixelRatio;
+            [canvasTiles, canvasGrid, canvasMain].forEach(c => {
+                c.width = w; c.height = h;
+                c.style.width = innerWidth + 'px';
+                c.style.height = innerHeight + 'px';
+            });
+            ctxTiles.imageSmoothingEnabled = ctxMain.imageSmoothingEnabled = false;
+            draw();
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // === POZIOM ZOOM ===
+        function getLevel() {
+            for (const lvl of LEVELS) if (zoom >= lvl.minZoom && zoom <= lvl.maxZoom) return lvl;
+            return LEVELS[2];
+        }
+
+        function getPixelScale() {
+            const lvl = getLevel();
+            const bpt = BLOCKS_PER_TILE[lvl.size];
+            const tps = Math.round(zoom * bpt);
+            return { scale: tps / bpt, tilePixelSize: tps, folder: lvl.folder };
+        }
+
+        // === ŁADOWANIE KAFELKÓW ===
+        function loadTile(tx, ty, folder) {
+            const key = `${folder}_${tx}_${ty}`;
+            if (cache.has(key)) return cache.get(key);
+            const ext = (Math.abs(tx) <= 1 && Math.abs(ty) <= 1) ? 'png' : 'webp';
+            const img = new Image();
+            img.src = `tiles/${folder}/${tx}_${ty}.${ext}`;
+            const p = new Promise(r => {
+                img.onload = () => { cache.set(key, img); loadedTiles++; r(img); };
+                img.onerror = () => { cache.set(key, null); r(null); };
+            });
+            cache.set(key, p);
+            return p;
+        }
+
+        // === RYSOWANIE ===
+        function draw() {
+            // Czyść
+            ctxTiles.clearRect(0, 0, canvasTiles.width, canvasTiles.height);
+            ctxGrid.clearRect(0, 0, canvasGrid.width, canvasGrid.height);
+            ctxMain.clearRect(0, 0, canvasMain.width, canvasMain.height);
+
+            const { scale: ppb, tilePixelSize, folder } = getPixelScale();
+            const cx = innerWidth / 2, cy = innerHeight / 2;
+
+            const bpt = BLOCKS_PER_TILE[LEVELS.find(l => l.folder === folder).size];
+            const startTx = Math.floor((viewX - cx/ppb) / bpt) - 1;
+            const endTx = Math.ceil((viewX + cx/ppb) / bpt) + 1;
+            const startTy = Math.floor((viewY - cy/ppb) / bpt) - 1;
+            const endTy = Math.ceil((viewY + cy/ppb) / bpt) + 1;
+
+            // Rysuj kafelki
+            for (let tx = startTx; tx <= endTx; tx++) {
+                for (let ty = startTy; ty <= endTy; ty++) {
+                    if (Math.abs(tx) > 50 || Math.abs(ty) > 50) continue;
+                    const key = `${folder}_${tx}_${ty}`;
+                    const img = cache.get(key);
+                    if (img && !(img instanceof Promise) && img) {
+                        const bx = tx * bpt;
+                        const bz = ty * bpt;
+                        const rx = cx + (bx - viewX) * ppb;
+                        const ry = cy + (bz - viewY) * ppb;
+                        ctxTiles.drawImage(img, rx, ry, tilePixelSize, tilePixelSize);
+                    } else if (!cache.has(key)) {
+                        loadTile(tx, ty, folder);
+                    }
+                }
+            }
+
+            // SIATKA + NAZWY
+            if (showGrid) {
+                ctxGrid.save();
+                ctxGrid.scale(pixelRatio, pixelRatio);
+                ctxGrid.translate(cx, cy);
+                ctxGrid.scale(ppb, ppb);
+                ctxGrid.translate(-viewX, -viewY);
+
+                ctxGrid.strokeStyle = '#0f0';
+                ctxGrid.lineWidth = 2 / ppb;
+                ctxGrid.font = `${Math.max(12, 40/ppb)}px Courier New`;
+                ctxGrid.fillStyle = '#0f0';
+                ctxGrid.textAlign = 'center';
+                ctxGrid.textBaseline = 'middle';
+
+                for (let tx = startTx; tx <= endTx; tx++) {
+                    for (let ty = startTy; ty <= endTy; ty++) {
+                        const x = tx * bpt;
+                        const y = ty * bpt;
+                        ctxGrid.strokeRect(x, y, bpt, bpt);
+                        ctxGrid.fillText(`${tx}_${ty}`, x + bpt/2, y + bpt/2);
+                    }
+                }
+                ctxGrid.restore();
+            }
+
+            // Poligony (z Twojego poligony.js)
+            if (typeof drawPolygons === 'function') {
+                ctxMain.save();
+                ctxMain.scale(pixelRatio, pixelRatio);
+                drawPolygons();
+                ctxMain.restore();
+            }
+
+            // Info
+            const wx = viewX + (innerWidth/2 - cx) / ppb;
+            const wz = viewY + (innerHeight/2 - cy) / ppb;
+            const tx = Math.floor(wx / bpt);
+            const ty = Math.floor(wz / bpt);
+            info.textContent = `Zoom: ${zoom.toFixed(2)}x | (${Math.round(wx)}, ${Math.round(wz)})`;
+            tileInfo.textContent = `Kafelek: ${tx}_${ty} | folder: ${folder} | ${tx}_${ty}.${(Math.abs(tx)<=1&&Math.abs(ty)<=1)?'png':'webp'}`;
+        }
+
+        // === ZOOM ===
+        let lastDist = 0;
+        canvasMain.addEventListener('touchstart', e => {
+            if (e.touches.length === 2) {
+                const [t1, t2] = e.touches;
+                lastDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+            }
+        }, { passive: false });
+
+        canvasMain.addEventListener('touchmove', e => {
+            if (e.touches.length === 2) {
+                e.preventDefault();
+                const [t1, t2] = e.touches;
+                const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+                if (!lastDist) return;
+                const delta = (dist - lastDist) / lastDist;
+                const mx = (t1.clientX + t2.clientX) / 2;
+                const my = (t1.clientY + t2.clientY) / 2;
+                const oldPpb = getPixelScale().scale;
+                const worldX = viewX + (mx - innerWidth/2) / oldPpb;
+                const worldZ = viewY + (my - innerHeight/2) / oldPpb;
+                zoom = Math.max(0.1, Math.min(40, zoom * (1 + delta * 3)));
+                const newPpb = getPixelScale().scale;
+                viewX = worldX - (mx - innerWidth/2) / newPpb;
+                viewY = worldZ - (my - innerHeight/2) / newPpb;
+                lastDist = dist;
+                draw();
+            }
+        }, { passive: false });
+
+        canvasMain.addEventListener('wheel', e => {
+            e.preventDefault();
+            const rect = canvasMain.getBoundingClientRect();
+            const mx = e.clientX - rect.left;
+            const my = e.clientY - rect.top;
+            const oldPpb = getPixelScale().scale;
+            const worldX = viewX + (mx - innerWidth/2) / oldPpb;
+            const worldZ = viewY + (my - innerHeight/2) / oldPpb;
+            zoom = Math.max(0.1, Math.min(40, zoom + (e.deltaY > 0 ? -0.3 : 0.3)));
+            const newPpb = getPixelScale().scale;
+            viewX = worldX - (mx - innerWidth/2) / newPpb;
+            viewY = worldZ - (my - innerHeight/2) / newPpb;
+            draw();
+        }, { passive: false });
+
+        // === PRZESUWANIE ===
+        let isPanning = false;
+        let panStart = { x: 0, y: 0, viewX: 0, viewY: 0 };
+
+        canvasMain.addEventListener('mousedown', e => {
+            if (e.button === 0) {
+                isPanning = true;
+                panStart = { x: e.clientX, y: e.clientY, viewX, viewY };
+            }
+        });
+
+        window.addEventListener('mousemove', e => {
+            if (isPanning) {
+                const ppb = getPixelScale().scale;
+                viewX = panStart.viewX - (e.clientX - panStart.x) / ppb;
+                viewY = panStart.viewY - (e.clientY - panStart.y) / ppb;
+                draw();
+            }
+        });
+
+        window.addEventListener('mouseup', () => isPanning = false);
+
+        // === PRZYCISK SIATKI ===
+        toggleBtn.addEventListener('click', () => {
+            showGrid = !showGrid;
+            toggleBtn.textContent = `SIATKA: ${showGrid ? 'ON' : 'OFF'}`;
+            toggleBtn.style.background = showGrid ? '#0f0' : '#000';
+            toggleBtn.style.color = showGrid ? '#000' : '#0f0';
+            draw();
+        });
+
+        // === SLIDER ZOOM ===
+        document.getElementById('zoom-slider')?.addEventListener('input', e => {
+            zoom = parseFloat(e.target.value);
+            draw();
+        });
+
+        // === START ===
+        draw();
+        setInterval(draw, 100);
+    </script>
+</body>
+</html>
