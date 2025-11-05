@@ -50,74 +50,126 @@
             font:bold 24px 'Courier New'; z-index:100; border:2px solid #0f0;
             box-shadow:0 0 40px #0f0; transition:opacity .5s;
         }
+        .cat-btn {
+            padding:8px 16px; background:#000; color:#0f0;
+            border:none; border-radius:10px; font-weight:bold;
+            cursor:pointer; font-size:14px; box-shadow:0 0 10px #0f0;
+            border:1px solid #0f0;
+        }
+        .cat-btn.selected {
+            background:#0f0; color:#000;
+        }
     </style>
     <!-- PRZYCISK POLIGONY -->
-<button id="open-editor-btn" style="
-    position: absolute;
-    top: 15px; left: 15px;
-    padding: 12px 20px;
-    background: #000;
-    color: #0f0;
-    border: 2px solid #0f0;
-    border-radius: 12px;
-    font-family: 'Courier New', monospace;
-    font-weight: bold;
-    font-size: 16px;
-    cursor: pointer;
-    box-shadow: 0 0 15px #0f0, inset 0 0 10px rgba(0,255,0,0.3);
-    z-index: 999;
-    transition: all 0.3s;
-">
-    POLIGONY
-</button>
+    <button id="open-editor-btn" style="
+        position: absolute;
+        top: 15px; left: 15px;
+        padding: 12px 20px;
+        background: #000;
+        color: #0f0;
+        border: 2px solid #0f0;
+        border-radius: 12px;
+        font-family: 'Courier New', monospace;
+        font-weight: bold;
+        font-size: 16px;
+        cursor: pointer;
+        box-shadow: 0 0 15px #0f0, inset 0 0 10px rgba(0,255,0,0.3);
+        z-index: 999;
+        transition: all 0.3s;
+    ">
+        POLIGONY
+    </button>
 
-<!-- EDYTOR (UKRYTY) -->
-<div id="editor-panel" style="
-    position: absolute; top: 70px; left: 15px;
-    width: 280px; background: rgba(0,0,0,0.95);
-    color: #0f0; padding: 15px; border: 2px solid #0f0;
-    border-radius: 15px; font-family: 'Courier New';
-    z-index: 998; display: none; box-shadow: 0 0 25px #0f0;
-">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-        <h3 style="margin:0; text-shadow:0 0 10px #0f0;">EDYTOR</h3>
-        <button id="close-editor" style="
-            background:none; border:none; color:#0f0; font-size:24px;
-            cursor:pointer; padding:0; width:30px; height:30px;
-            display:flex; align-items:center; justify-content:center;
-        ">X</button>
-    </div>
+    <!-- EDYTOR (UKRYTY) -->
+    <div id="editor-panel" style="
+        position: absolute; top: 70px; left: 15px;
+        width: 280px; background: rgba(0,0,0,0.95);
+        color: #0f0; padding: 15px; border: 2px solid #0f0;
+        border-radius: 15px; font-family: 'Courier New';
+        z-index: 998; display: none; box-shadow: 0 0 25px #0f0;
+    ">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <h3 style="margin:0; text-shadow:0 0 10px #0f0;">EDYTOR</h3>
+            <button id="close-editor" style="
+                background:none; border:none; color:#0f0; font-size:24px;
+                cursor:pointer; padding:0; width:30px; height:30px;
+                display:flex; align-items:center; justify-content:center;
+            ">X</button>
+        </div>
 
-    <div style="margin:10px 0;">
-        <label>Kategoria:</label><br>
-        <div style="display:flex; gap:8px; margin-top:8px;">
-            <button class="cat-btn" data-cat="1">Teren</button>
-            <button class="cat-btn" data-cat="3">Droga</button>
-            <!-- <button class="cat-btn" data-cat="2">Kolej</button> -->
+        <div style="margin:10px 0;">
+            <label>Kategoria:</label><br>
+            <div style="display:flex; gap:8px; margin-top:8px;">
+                <button class="cat-btn" data-cat="1">Teren</button>
+                <button class="cat-btn" data-cat="3">Droga</button>
+                <!-- <button class="cat-btn" data-cat="2">Kolej</button> -->
+            </div>
+        </div>
+
+        <div style="margin:10px 0;">
+            <label>Zamknięcie:</label><br>
+            <button id="closePathToggle" style="
+                padding:8px 16px; background:#0f0; color:#000;
+                border:none; border-radius:10px; font-weight:bold;
+                cursor:pointer; font-size:14px; box-shadow:0 0 10px #0f0;
+                margin-top:5px;
+            ">ON</button>
+        </div>
+
+        <div style="margin:10px 0;">
+            <label>Kolor obramowania:</label>
+            <input type="color" id="lineColor" value="#00ff00" style="width:100%; height:40px; margin-top:5px;">
+        </div>
+
+        <div style="margin:10px 0;">
+            <label>Nazwa:</label>
+            <input type="text" id="polyName" placeholder="np. Wioska" style="
+                width:100%; background:#000; color:#0f0; border:1px solid #0f0;
+                padding:8px; margin-top:5px; border-radius:6px;
+            ">
+        </div>
+
+        <div style="text-align:center; margin-top:20px;">
+            <button id="startDrawing" style="
+                padding:12px 30px; background:#0f0; color:#000;
+                border:none; border-radius:10px; font-weight:bold;
+                cursor:pointer; font-size:16px; box-shadow:0 0 15px #0f0;
+            ">ROZPOCZNIJ RYSOWANIE</button>
         </div>
     </div>
 
-    <div style="margin:10px 0;">
-        <label>Kolor obramowania:</label>
-        <input type="color" id="lineColor" value="#00ff00" style="width:100%; height:40px; margin-top:5px;">
+    <!-- MODAL KODU -->
+    <div id="code-modal" style="
+        position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+        background:rgba(0,0,0,0.95); color:#0f0; padding:20px; border:2px solid #0f0;
+        border-radius:15px; z-index:1000; display:none; width:80%; max-width:600px;
+        box-shadow:0 0 30px #0f0; font-family:'Courier New';
+    ">
+        <h3 style="text-align:center; text-shadow:0 0 10px #0f0; margin-bottom:15px;">GOTOWY KOD</h3>
+        <textarea id="code-text" style="
+            width:100%; height:200px; background:#000; color:#0f0;
+            border:1px solid #0f0; padding:10px; font-size:14px;
+            resize:none;
+        "></textarea>
+        <p style="color:#0f0; text-align:center; margin:10px 0; font-weight:bold;">gotowy kod wyślij do XRogo</p>
+        <div style="display:flex; justify-content:space-around; margin-top:20px;">
+            <button id="copy-btn" style="
+                padding:10px 20px; background:#0f0; color:#000;
+                border:none; border-radius:10px; font-weight:bold;
+                cursor:pointer; font-size:14px; box-shadow:0 0 15px #0f0;
+            ">KOPIUJ</button>
+            <button id="close-modal" style="
+                padding:10px 20px; background:#0f0; color:#000;
+                border:none; border-radius:10px; font-weight:bold;
+                cursor:pointer; font-size:14px; box-shadow:0 0 15px #0f0;
+            ">ZAMKNIJ</button>
+            <button id="return-btn" style="
+                padding:10px 20px; background:#0f0; color:#000;
+                border:none; border-radius:10px; font-weight:bold;
+                cursor:pointer; font-size:14px; box-shadow:0 0 15px #0f0;
+            ">WRÓĆ</button>
+        </div>
     </div>
-
-    <div style="margin:10px 0;">
-        <label>Nazwa:</label>
-        <input type="text" id="polyName" placeholder="np. Wioska" style="
-            width:100%; background:#000; color:#0f0; border:1px solid #0f0;
-            padding:8px; margin-top:5px; border-radius:6px;
-        ">
-    </div>
-
-    <div style="text-align:center; margin-top:20px;">
-        <button id="startDrawing" style="
-            padding:12px 30px; background:#0f0; color:#000;
-            border:none; border-radius:10px; font-weight:bold;
-            cursor:pointer; font-size:16px; box-shadow:0 0 15px #0f0;
-        ">ROZPOCZNIJ RYSOWANIE</button>
-    </div>
-</div>
 </head>
 <body>
     <div id="map">
@@ -133,6 +185,7 @@
 
     <!-- KLUCZOWE: pozycje.js PRZED script.js + type="module" -->
     <script src="pozycje.js"></script>
+    <script src="poligony.js"></script>
     <script src="script.js"></script>
 </body>
 </html>

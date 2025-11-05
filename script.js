@@ -23,6 +23,13 @@ const zoomLabel = document.getElementById('zoom-label');
 const openBtn = document.getElementById('open-editor-btn');
 const editorPanel = document.getElementById('editor-panel');
 const closeBtn = document.getElementById('close-editor');
+const startDrawingBtn = document.getElementById('startDrawing');
+const closePathToggle = document.getElementById('closePathToggle');
+const codeModal = document.getElementById('code-modal');
+const codeText = document.getElementById('code-text');
+const copyBtn = document.getElementById('copy-btn');
+const closeModalBtn = document.getElementById('close-modal');
+const returnBtn = document.getElementById('return-btn');
 
 let polygons = [];
 if (window.polygonsData && Array.isArray(window.polygonsData)) {
@@ -148,11 +155,11 @@ function drawPolygons() {
         ctx.stroke();
 
         tempPoints.forEach(([x, z], i) => {
+            const isFirst = i === 0;
             const isLast = i === tempPoints.length - 1;
             ctx.beginPath();
             ctx.arc(x, z, 6/zoom, 0, Math.PI*2);
-            ctx.fillStyle = '#ff0000';
-            if (isLast && blink) ctx.fillStyle = '#00ffff';
+            ctx.fillStyle = (isFirst || (isLast && blink)) ? '#00ffff' : '#ff0000';
             ctx.fill();
             ctx.strokeStyle = '#000';
             ctx.lineWidth = 2/zoom;
@@ -171,15 +178,6 @@ function drawPolygons() {
     }
 
     ctx.restore();
-
-    if (isDrawing) {
-        ctx.fillStyle = '#0f0';
-        ctx.strokeStyle = '#000';
-        ctx.lineWidth = 4;
-        ctx.font = 'bold 42px Arial';
-        ctx.strokeText('+', 12, 58);
-        ctx.fillText('+', 12, 58);
-    }
 }
 
 setInterval(() => { blink = !blink; if (isDrawing) draw(); }, 500);
@@ -333,10 +331,6 @@ function detectHover(x, y) {
 
 function handleClick(x, y) {
     if (!isDrawing) return;
-    if (x < 70 && y < 80) {
-        savePolygon();
-        return;
-    }
 
     if (hoverPoint !== -1) {
         tempPoints.splice(hoverPoint, 1);
@@ -487,17 +481,29 @@ function savePolygon() {
         alert("Za mało punktów! Minimum 3.");
         return;
     }
-    const poly = { ...editorConfig, points: tempPoints, name: editorConfig.name || 'Nowy' };
-    polygons.push(poly);
-    const code = JSON.stringify(poly, null, 4).replace(/^/gm, '    ').trim();
-    const fullCode = `{\n${code}\n},`;
-    
-    navigator.clipboard.writeText(fullCode).then(() => {
-        alert('SKOPIOWANO!\nWklej do pozycje.js');
-    }).catch(() => {
-        prompt('WKLEJ DO pozycje.js:', fullCode);
-    });
+    const poly = { ...editorConfig, points: tempPoints };
+    if (editorConfig.name) poly.name = editorConfig.name;
 
+    let fullCode = '{\n';
+    fullCode += '    points: ' + JSON.stringify(tempPoints) + ',\n';
+    fullCode += '    lineColor: "' + poly.lineColor + '",\n';
+    fullCode += '    fillColor: "' + poly.fillColor + '",\n';
+    fullCode += '    closePath: ' + poly.closePath + ',\n';
+    if (poly.name) fullCode += '    name: "' + poly.name + '",\n';
+    fullCode += '    category: ' + poly.category + '\n';
+    fullCode += '},';
+
+    codeText.value = fullCode;
+    codeModal.style.display = 'block';
+
+    // Tymczasowo zapisz poly, ale nie dodawaj jeszcze do polygons
+    window.tempPoly = poly;
+}
+
+function finalizeSave(addToPolygons = true) {
+    if (addToPolygons) {
+        polygons.push(window.tempPoly);
+    }
     isDrawing = false;
     tempPoints = [];
     canvas.style.cursor = 'grab';
@@ -505,6 +511,7 @@ function savePolygon() {
     openBtn.style.display = 'block';
     info.textContent = 'ZAPISANO!';
     draw();
+    delete window.tempPoly;
 }
 
 function clampView() {
@@ -513,20 +520,32 @@ function clampView() {
 }
 
 // === UI ===
-openBtn.addEventListener('click', () => { 
-    editorPanel.style.display = 'block'; 
-    openBtn.style.display = 'none'; 
+openBtn.addEventListener('click', () => {
+    editorPanel.style.display = 'block';
+    openBtn.style.display = 'none';
+    startDrawingBtn.textContent = isDrawing ? 'ZAKOŃCZ RYSOWANIE' : 'ROZPOCZNIJ RYSOWANIE';
+    closePathToggle.textContent = editorConfig.closePath ? 'ON' : 'OFF';
+    closePathToggle.style.background = editorConfig.closePath ? '#0f0' : '#f00';
+    // Wybierz kategorię
+    document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('selected'));
+    document.querySelector(`.cat-btn[data-cat="${editorConfig.category}"]`).classList.add('selected');
 });
-closeBtn.addEventListener('click', () => { 
-    editorPanel.style.display = 'none'; 
-    openBtn.style.display = 'block'; 
+
+closeBtn.addEventListener('click', () => {
+    if (isDrawing) {
+        isDrawing = false;
+        tempPoints = [];
+        canvas.style.cursor = 'grab';
+        draw();
+    }
+    editorPanel.style.display = 'none';
+    openBtn.style.display = 'block';
 });
 
 document.querySelectorAll('.cat-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-        document.querySelectorAll('.cat-btn').forEach(b => b.style.background = '');
-        btn.style.background = '#0f0'; 
-        btn.style.color = '#000';
+        document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
         editorConfig.category = parseInt(btn.dataset.cat);
         if (editorConfig.category === 3) {
             editorConfig.lineColor = '#ffffff99';
@@ -536,24 +555,40 @@ document.querySelectorAll('.cat-btn').forEach(btn => {
         } else {
             document.getElementById('lineColor').disabled = false;
         }
+        if (isDrawing) draw();
     });
+});
+
+closePathToggle.addEventListener('click', () => {
+    editorConfig.closePath = !editorConfig.closePath;
+    closePathToggle.textContent = editorConfig.closePath ? 'ON' : 'OFF';
+    closePathToggle.style.background = editorConfig.closePath ? '#0f0' : '#f00';
+    if (isDrawing) draw();
 });
 
 document.getElementById('lineColor').addEventListener('input', e => {
     const hex = e.target.value;
     editorConfig.lineColor = hex;
     editorConfig.fillColor = hex + '33';
+    if (isDrawing) draw();
 });
 
-document.getElementById('polyName').addEventListener('input', e => editorConfig.name = e.target.value);
+document.getElementById('polyName').addEventListener('input', e => {
+    editorConfig.name = e.target.value;
+    if (isDrawing) draw();
+});
 
-document.getElementById('startDrawing').addEventListener('click', () => {
+startDrawingBtn.addEventListener('click', () => {
     editorPanel.style.display = 'none';
     openBtn.style.display = 'block';
-    isDrawing = true;
-    tempPoints = [];
-    canvas.style.cursor = 'crosshair';
-    info.textContent = isMobile ? 'Tap=dodaj | tap punkt=usuń | przytrzymaj=przesuń' : 'Klik=dodaj | prawy=usuń | przytrzymaj=przesuń';
+    if (!isDrawing) {
+        isDrawing = true;
+        tempPoints = [];
+        canvas.style.cursor = 'crosshair';
+        info.textContent = isMobile ? 'Tap=dodaj | tap punkt=usuń | przytrzymaj=przesuń' : 'Klik=dodaj | prawy=usuń | przytrzymaj=przesuń';
+    } else {
+        savePolygon();
+    }
     draw();
 });
 
@@ -571,6 +606,27 @@ window.addEventListener('keydown', e => {
 slider.addEventListener('input', e => { 
     zoom = parseFloat(e.target.value); 
     draw(); 
+});
+
+// Modal events
+copyBtn.addEventListener('click', () => {
+    navigator.clipboard.writeText(codeText.value).then(() => {
+        alert('SKOPIOWANO!');
+    }).catch(() => {
+        prompt('WKLEJ DO pozycje.js:', codeText.value);
+    });
+});
+
+closeModalBtn.addEventListener('click', () => {
+    codeModal.style.display = 'none';
+    finalizeSave(true);
+});
+
+returnBtn.addEventListener('click', () => {
+    codeModal.style.display = 'none';
+    isDrawing = true;
+    canvas.style.cursor = 'crosshair';
+    draw();
 });
 
 canvas.style.cursor = 'grab';
