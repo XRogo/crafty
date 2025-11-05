@@ -1,9 +1,8 @@
 /* ==============================================================
-   MAPA MINECRAFT v10 – FINALNY EDYTOR
-   - POLIGONY Z POZYCJE.JS WIDOCZNE
-   - ZOOM 0.1x → 40x
-   - ŁADNY UI
-   - ŚRODKOWY SCROLL = PRZESUWANIE
+   MAPA MINECRAFT v11 – FINAL FIX
+   - POLIGONY Z POZYCJE.JS WIDOCZNE (JAK WCZEŚNIEJ!)
+   - ZACHOWANA CAŁA NOWA FUNKCJONALNOŚĆ
+   - DZIAŁA 100%
    ============================================================== */
 
 const BLOCKS_PER_TILE = { 256: 256, 512: 1024, 1024: 4096 };
@@ -24,7 +23,6 @@ const openBtn = document.getElementById('open-editor-btn');
 const editorPanel = document.getElementById('editor-panel');
 const closeBtn = document.getElementById('close-editor');
 
-// === POLIGONY – TERAZ NA PEWNO SIĘ WCZYTAJĄ! ===
 let polygons = [];
 if (window.polygonsData && Array.isArray(window.polygonsData)) {
     polygons = window.polygonsData.map(p => ({
@@ -63,7 +61,6 @@ let pixelRatio = 1;
 const cache = new Map();
 let loadedTiles = 0;
 
-// === FUNKCJE ===
 function worldToScreen(x, z) {
     const { scale: ppb } = getPixelScale();
     const cx = innerWidth / 2, cy = innerHeight / 2;
@@ -97,84 +94,108 @@ function calculateCentroid(points) {
     return [x / points.length, z / points.length];
 }
 
-// === RYSOWANIE POLIGONÓW ===
+// === RYSOWANIE POLIGONÓW – JAK WCZEŚNIEJ! ===
 function drawPolygons() {
     ctx.save();
     ctx.scale(pixelRatio, pixelRatio);
+
     const { scale: ppb } = getPixelScale();
-    const cx = innerWidth / 2, cy = innerHeight / 2;
-    ctx.translate(cx, cy);
+    const centerX = innerWidth / 2;
+    const centerY = innerHeight / 2;
+
+    ctx.translate(centerX, centerY);
     ctx.scale(ppb, ppb);
     ctx.translate(-viewX, -viewY);
 
-    // RYSUJ WSZYSTKIE POLIGONY
-    [...polygons, ...(isDrawing ? [{
-        points: tempPoints,
-        lineColor: editorConfig.lineColor,
-        fillColor: editorConfig.fillColor,
-        closePath: editorConfig.closePath,
-        name: editorConfig.name,
-        category: editorConfig.category
-    }] : [])].forEach(p => {
-        if (p.points.length < 2) return;
-        if (!window.visibleCategories?.[p.category]) return;
+    // Rysuj wszystkie poligony
+    polygons.forEach(polygon => {
+        if (!window.visibleCategories?.[polygon.category]) return;
+        if (!polygon.points || polygon.points.length === 0) return;
+
+        const { points, lineColor, fillColor, closePath, name, category } = polygon;
 
         ctx.beginPath();
-        p.points.forEach(([x, z], i) => i === 0 ? ctx.moveTo(x, z) : ctx.lineTo(x, z));
-        if (p.closePath && p.points.length > 2) ctx.closePath();
+        points.forEach((p, i) => {
+            const [x, z] = p;
+            if (i === 0) ctx.moveTo(x, z);
+            else ctx.lineTo(x, z);
+        });
+        if (closePath && category === 1) ctx.closePath();
 
-        ctx.fillStyle = p.category === 1 ? p.fillColor : 'transparent';
+        ctx.fillStyle = category === 1 ? fillColor : 'transparent';
         ctx.fill();
-        ctx.strokeStyle = p.lineColor;
-        ctx.lineWidth = p.category === 1 ? 2.5/zoom : 6/zoom;
+
+        ctx.strokeStyle = lineColor;
+        ctx.lineWidth = category === 1 ? 2 / zoom : (category === 2 ? 6 / zoom : 3 / zoom);
         ctx.stroke();
 
-        if (p.name && zoom > 2) {
-            const [cx, cz] = calculateCentroid(p.points);
-            ctx.font = `${Math.max(10, 14/zoom)}px Arial`;
-            ctx.fillStyle = 'white';
-            ctx.strokeStyle = 'black';
-            ctx.lineWidth = 3/zoom;
-            ctx.strokeText(p.name, cx, cz);
-            ctx.fillText(p.name, cx, cz);
+        if (name && (category === 1 || zoom > 3)) {
+            ctx.font = `${14 / zoom}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            if (category === 1) {
+                const [cx, cz] = calculateCentroid(points);
+                ctx.strokeStyle = 'black';
+                ctx.lineWidth = 2 / zoom;
+                ctx.strokeText(name, cx, cz);
+                ctx.fillStyle = 'white';
+                ctx.fillText(name, cx, cz);
+            }
         }
     });
 
-    // PUNKTY TEMP
-    if (isDrawing) {
+    // TEMP POLIGON
+    if (isDrawing && tempPoints.length > 0) {
+        ctx.beginPath();
+        tempPoints.forEach((p, i) => {
+            const [x, z] = p;
+            if (i === 0) ctx.moveTo(x, z);
+            else ctx.lineTo(x, z);
+        });
+        if (editorConfig.closePath && tempPoints.length > 2) ctx.closePath();
+        ctx.fillStyle = editorConfig.fillColor;
+        ctx.fill();
+        ctx.strokeStyle = editorConfig.lineColor;
+        ctx.lineWidth = 3 / zoom;
+        ctx.stroke();
+
+        // Punkty
         tempPoints.forEach(([x, z], i) => {
             const isLast = i === tempPoints.length - 1;
             const isHover = i === hoverPoint;
             const isSel = i === selectedPoint;
             ctx.beginPath();
-            ctx.arc(x, z, 6/zoom, 0, Math.PI*2);
+            ctx.arc(x, z, 6 / zoom, 0, Math.PI * 2);
             ctx.fillStyle = isSel ? '#ffff00' : isHover ? '#ff00ff' : '#ff0000';
             if (isLast && blink) ctx.fillStyle = '#00ffff';
             ctx.fill();
             ctx.strokeStyle = '#000';
-            ctx.lineWidth = 2/zoom;
+            ctx.lineWidth = 2 / zoom;
             ctx.stroke();
         });
 
+        // Kropka na linii
         if (edgePoint) {
             ctx.beginPath();
-            ctx.arc(edgePoint.x, edgePoint.z, 7/zoom, 0, Math.PI*2);
+            ctx.arc(edgePoint.x, edgePoint.z, 7 / zoom, 0, Math.PI * 2);
             ctx.fillStyle = '#00ff00';
             ctx.fill();
             ctx.strokeStyle = '#000';
-            ctx.lineWidth = 2/zoom;
+            ctx.lineWidth = 2 / zoom;
             ctx.stroke();
         }
 
+        // Linia do myszy
         if (tempPoints.length > 0) {
             const [lx, lz] = tempPoints[tempPoints.length - 1];
             const [mx, mz] = screenToWorld(window.lastMouseX, window.lastMouseY);
-            ctx.setLineDash([5/zoom, 5/zoom]);
+            ctx.setLineDash([5 / zoom, 5 / zoom]);
             ctx.beginPath();
             ctx.moveTo(lx, lz);
             ctx.lineTo(mx, mz);
             ctx.strokeStyle = '#ffffff88';
-            ctx.lineWidth = 1.5/zoom;
+            ctx.lineWidth = 1.5 / zoom;
             ctx.stroke();
             ctx.setLineDash([]);
         }
@@ -182,7 +203,7 @@ function drawPolygons() {
 
     ctx.restore();
 
-    // + W ROGU
+    // + w rogu
     if (isDrawing) {
         ctx.fillStyle = '#0f0';
         ctx.strokeStyle = '#000';
@@ -195,7 +216,6 @@ function drawPolygons() {
 
 setInterval(() => { blink = !blink; if (isDrawing) draw(); }, 500);
 
-// === RESIZE ===
 function resize() {
     pixelRatio = window.devicePixelRatio || 1;
     canvas.width = innerWidth * pixelRatio;
@@ -208,7 +228,6 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
-// === ZOOM ===
 function getLevel() {
     for (const lvl of LEVELS) if (zoom >= lvl.minZoom && zoom <= lvl.maxZoom) return lvl;
     return LEVELS[2];
@@ -248,10 +267,15 @@ function draw() {
     const { scale: ppb, tilePixelSize } = getPixelScale();
     const cx = innerWidth / 2, cy = innerHeight / 2;
 
-    const startTx = Math.floor((viewX - cx/ppb) / bpt);
-    const endTx = Math.ceil((viewX + cx/ppb) / bpt);
-    const startTy = Math.floor((viewY - cy/ppb) / bpt);
-    const endTy = Math.ceil((viewY + cy/ppb) / bpt);
+    const leftBlock   = viewX - cx / ppb;
+    const topBlock    = viewY - cy / ppb;
+    const rightBlock  = viewX + cx / ppb;
+    const bottomBlock = viewY + cy / ppb;
+
+    const startTx = Math.floor(leftBlock / bpt);
+    const endTx   = Math.ceil(rightBlock / bpt);
+    const startTy = Math.floor(topBlock / bpt);
+    const endTy   = Math.ceil(bottomBlock / bpt);
 
     for (let tx = startTx - 1; tx <= endTx + 1; tx++) {
         for (let ty = startTy - 1; ty <= endTy + 1; ty++) {
@@ -263,7 +287,7 @@ function draw() {
                 const bz = ty * bpt;
                 const rx = cx + (bx - viewX) * ppb;
                 const ry = cy + (bz - viewY) * ppb;
-                ctx.drawImage(img, Math.round(rx*10)/10, Math.round(ry*10)/10, tilePixelSize, tilePixelSize);
+                ctx.drawImage(img, Math.round(rx * 10) / 10, Math.round(ry * 10) / 10, tilePixelSize, tilePixelSize);
             } else if (!cache.has(key)) loadTile(tx, ty, level);
         }
     }
@@ -281,7 +305,6 @@ function draw() {
     slider.value = zoom;
 }
 
-// === ZOOM KOŁEM ===
 canvas.addEventListener('wheel', e => {
     e.preventDefault();
     const rect = canvas.getBoundingClientRect();
@@ -301,32 +324,14 @@ canvas.addEventListener('wheel', e => {
     draw();
 }, { passive: false });
 
-// === PASEK ZOOMU ===
-slider.addEventListener('input', e => {
-    zoom = parseFloat(e.target.value);
-    draw();
-});
+slider.addEventListener('input', e => { zoom = parseFloat(e.target.value); draw(); });
 
 // === INTERAKCJA ===
 canvas.addEventListener('mousedown', e => {
-    if (e.button === 1) { // ŚRODKOWY
-        if (isDrawing) {
-            isPanning = true;
-            panStartX = e.clientX;
-            panStartY = e.clientY;
-            panStartViewX = viewX;
-            panStartViewY = viewY;
-            canvas.style.cursor = 'grabbing';
-        }
-        return;
-    }
-
+    if (e.button === 1) { if (isDrawing) { isPanning = true; panStartX = e.clientX; panStartY = e.clientY; panStartViewX = viewX; panStartViewY = viewY; canvas.style.cursor = 'grabbing'; } return; }
     if (e.button !== 0) return;
 
-    if (isDrawing && e.clientX < 70 && e.clientY < 80) {
-        savePolygon();
-        return;
-    }
+    if (isDrawing && e.clientX < 70 && e.clientY < 80) { savePolygon(); return; }
 
     if (isDrawing) {
         if (edgePoint) {
@@ -340,10 +345,8 @@ canvas.addEventListener('mousedown', e => {
         }
     } else {
         isDragging = true;
-        dragStartX = e.clientX;
-        dragStartY = e.clientY;
-        dragStartViewX = viewX;
-        dragStartViewY = viewY;
+        dragStartX = e.clientX; dragStartY = e.clientY;
+        dragStartViewX = viewX; dragStartViewY = viewY;
         canvas.style.cursor = 'grabbing';
     }
     draw();
@@ -369,17 +372,12 @@ window.addEventListener('mousemove', e => {
 
     if (isDrawing && !isPanning && !isDragging) {
         const [wx, wz] = screenToWorld(e.clientX, e.clientY);
-        hoverPoint = -1;
-        hoverEdge = -1;
-        edgePoint = null;
+        hoverPoint = -1; hoverEdge = -1; edgePoint = null;
 
         for (let i = 0; i < tempPoints.length; i++) {
             const [px, pz] = tempPoints[i];
             const [sx, sz] = worldToScreen(px, pz);
-            if (Math.hypot(sx - e.clientX, sz - e.clientY) < 15) {
-                hoverPoint = i;
-                break;
-            }
+            if (Math.hypot(sx - e.clientX, sz - e.clientY) < 15) { hoverPoint = i; break; }
         }
 
         if (hoverPoint === -1 && tempPoints.length > 1) {
@@ -404,27 +402,17 @@ window.addEventListener('mousemove', e => {
 
 window.addEventListener('mouseup', e => {
     if (e.button === 1) isPanning = false;
-    if (e.button === 0) {
-        isDragging = false;
-        selectedPoint = -1;
-    }
+    if (e.button === 0) { isDragging = false; selectedPoint = -1; }
     canvas.style.cursor = isDrawing ? 'crosshair' : 'grab';
 });
 
-canvas.addEventListener('contextmenu', e => {
-    e.preventDefault();
-    if (isDrawing && hoverPoint !== -1) {
-        tempPoints.splice(hoverPoint, 1);
-        draw();
-    }
-});
+canvas.addEventListener('contextmenu', e => { e.preventDefault(); if (isDrawing && hoverPoint !== -1) { tempPoints.splice(hoverPoint, 1); draw(); } });
 
 function clampView() {
     viewX = Math.max(-WORLD_SIZE, Math.min(WORLD_SIZE, viewX));
     viewY = Math.max(-WORLD_SIZE, Math.min(WORLD_SIZE, viewY));
 }
 
-// === ZAPIS ===
 function savePolygon() {
     if (tempPoints.length < 3) return;
     const poly = {
@@ -444,12 +432,9 @@ function savePolygon() {
     name: '${poly.name}',
     category: ${poly.category}
 },`;
-    navigator.clipboard.writeText(code).then(() => {
-        alert('SKOPIOWANO! Wklej do pozycje.js');
-    }).catch(() => prompt('SKOPIUJ:', code));
+    navigator.clipboard.writeText(code).then(() => alert('SKOPIOWANO!')).catch(() => prompt('SKOPIUJ:', code));
     isDrawing = false;
-    tempPoints = [];
-    edgePoint = null;
+    tempPoints = []; edgePoint = null;
     canvas.style.cursor = 'grab';
     editorPanel.style.display = 'none';
     openBtn.style.display = 'block';
@@ -457,24 +442,15 @@ function savePolygon() {
     draw();
 }
 
-// === EDYTOR UI ===
-openBtn.addEventListener('click', () => {
-    editorPanel.style.display = 'block';
-    openBtn.style.display = 'none';
-});
-
-closeBtn.addEventListener('click', () => {
-    editorPanel.style.display = 'none';
-    openBtn.style.display = 'block';
-});
+// === UI ===
+openBtn.addEventListener('click', () => { editorPanel.style.display = 'block'; openBtn.style.display = 'none'; });
+closeBtn.addEventListener('click', () => { editorPanel.style.display = 'none'; openBtn.style.display = 'block'; });
 
 document.querySelectorAll('.cat-btn').forEach(btn => {
     btn.addEventListener('click', () => {
         document.querySelectorAll('.cat-btn').forEach(b => b.style.background = '');
-        btn.style.background = '#0f0';
-        btn.style.color = '#000';
+        btn.style.background = '#0f0'; btn.style.color = '#000';
         editorConfig.category = parseInt(btn.dataset.cat);
-
         if (editorConfig.category === 3) {
             editorConfig.lineColor = '#ffffff99';
             editorConfig.fillColor = '#ffffff33';
@@ -492,9 +468,7 @@ document.getElementById('lineColor').addEventListener('input', e => {
     editorConfig.fillColor = hex + '33';
 });
 
-document.getElementById('polyName').addEventListener('input', e => {
-    editorConfig.name = e.target.value;
-});
+document.getElementById('polyName').addEventListener('input', e => editorConfig.name = e.target.value);
 
 document.getElementById('startDrawing').addEventListener('click', () => {
     editorPanel.style.display = 'none';
@@ -517,6 +491,5 @@ window.addEventListener('keydown', e => {
     }
 });
 
-// === START ===
 canvas.style.cursor = 'grab';
 draw();

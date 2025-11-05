@@ -460,3 +460,7 @@ window.polygonsData = [
         category: 1
     }
 ];
+window.visibleCategories = {
+    1: true,  // Tereny
+    3: true   // Drogi
+};
