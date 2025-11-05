@@ -1,9 +1,8 @@
 /* ==============================================================
-   MAPA MINECRAFT v13 – MOBILE PERFECT
-   - PRZESUWANIE MAPY TYLKO PO 0.5s W RYSOWANIU
-   - PUNKTY BEZPIECZNE
-   - ZOOM PALCAMI
-   - USUWANIE DZIAŁA
+   MAPA MINECRAFT v14 – MOBILE & DESKTOP PERFECTION
+   - ZERO opóźnień poza edycją
+   - W edycji: punkt = przesuwaj punkt, reszta = przesuwaj mapę
+   - Tap = dodaj / usuń / dodaj na linii
    ============================================================== */
 
 const BLOCKS_PER_TILE = { 256: 256, 512: 1024, 1024: 4096 };
@@ -58,12 +57,13 @@ let pixelRatio = 1;
 const cache = new Map();
 let loadedTiles = 0;
 
-// === STANY DOTYKU ===
-let touchStartTime = 0;
-let isLongPress = false;
+// === STANY ===
 let isPanning = false;
 let panStart = { x: 0, y: 0, viewX: 0, viewY: 0 };
 let lastX = 0, lastY = 0;
+let touchStartTime = 0;
+let isLongPress = false;
+let isDraggingPoint = false;
 
 // === FUNKCJE ===
 function worldToScreen(x, z) {
@@ -81,7 +81,25 @@ function screenToWorld(x, y) {
     return [viewX + (mx - cx) / ppb, viewY + (my - cy) / ppb];
 }
 
-// === RYSOWANIE (BEZ ZMIAN) ===
+function pointDistanceToSegment(px, pz, x1, z1, x2, z2) {
+    const A = px - x1, B = pz - z1, C = x2 - x1, D = z2 - z1;
+    const dot = A * C + B * D;
+    const lenSq = C * C + D * D;
+    let param = lenSq !== 0 ? dot / lenSq : -1;
+    param = Math.max(0, Math.min(1, param));
+    const xx = x1 + param * C;
+    const zz = z1 + param * D;
+    return { dist: Math.hypot(px - xx, pz - zz), x: xx, z: zz, param };
+}
+
+function calculateCentroid(points) {
+    if (!points.length) return [0, 0];
+    let x = 0, z = 0;
+    points.forEach(p => { x += p[0]; z += p[1]; });
+    return [x / points.length, z / points.length];
+}
+
+// === RYSOWANIE ===
 function drawPolygons() {
     ctx.save();
     ctx.scale(pixelRatio, pixelRatio);
@@ -91,10 +109,10 @@ function drawPolygons() {
     ctx.scale(ppb, ppb);
     ctx.translate(-viewX, -viewY);
 
+    // Poligony stałe
     polygons.forEach(p => {
         if (!window.visibleCategories?.[p.category]) return;
         if (!p.points?.length) return;
-
         const { points, lineColor, fillColor, closePath, name, category } = p;
         ctx.beginPath();
         points.forEach(([x, z], i) => i === 0 ? ctx.moveTo(x, z) : ctx.lineTo(x, z));
@@ -116,6 +134,7 @@ function drawPolygons() {
         }
     });
 
+    // Temp poligon
     if (isDrawing && tempPoints.length > 0) {
         ctx.beginPath();
         tempPoints.forEach(([x, z], i) => i === 0 ? ctx.moveTo(x, z) : ctx.lineTo(x, z));
@@ -128,11 +147,10 @@ function drawPolygons() {
 
         tempPoints.forEach(([x, z], i) => {
             const isLast = i === tempPoints.length - 1;
-            const isHover = i === hoverPoint;
             const isSel = i === selectedPoint;
             ctx.beginPath();
             ctx.arc(x, z, 6/zoom, 0, Math.PI*2);
-            ctx.fillStyle = isSel ? '#ffff00' : isHover ? '#ff00ff' : '#ff0000';
+            ctx.fillStyle = isSel ? '#ffff00' : '#ff0000';
             if (isLast && blink) ctx.fillStyle = '#00ffff';
             ctx.fill();
             ctx.strokeStyle = '#000';
@@ -176,16 +194,9 @@ function drawPolygons() {
     }
 }
 
-function calculateCentroid(points) {
-    if (!points.length) return [0, 0];
-    let x = 0, z = 0;
-    points.forEach(p => { x += p[0]; z += p[1]; });
-    return [x / points.length, z / points.length];
-}
-
 setInterval(() => { blink = !blink; if (isDrawing) draw(); }, 500);
 
-// === RESIZE, TILES, ZOOM – BEZ ZMIAN ===
+// === RESIZE, TILES, ZOOM ===
 function resize() {
     pixelRatio = window.devicePixelRatio || 1;
     canvas.width = innerWidth * pixelRatio;
@@ -304,169 +315,121 @@ canvas.addEventListener('touchmove', e => {
     }
 }, { passive: false });
 
-// === GŁÓWNY DOTYK ===
-canvas.addEventListener('touchstart', e => {
-    if (e.touches.length !== 1) return;
-    const touch = e.touches[0];
+// === GŁÓWNY DOTYK / MYSZ ===
+function startInteraction(e) {
+    const clientX = e.clientX || e.touches[0].clientX;
+    const clientY = e.clientY || e.touches[0].clientY;
     touchStartTime = Date.now();
     isLongPress = false;
     isPanning = false;
-    lastX = touch.clientX;
-    lastY = touch.clientY;
-    panStart = { x: touch.clientX, y: touch.clientY, viewX, viewY };
+    isDraggingPoint = false;
+    lastX = clientX;
+    lastY = clientY;
+    panStart = { x: clientX, y: clientY, viewX, viewY };
 
-    // Sprawdź hover
     if (isDrawing) {
-        const [wx, wz] = screenToWorld(touch.clientX, touch.clientY);
-        hoverPoint = -1;
+        const [wx, wz] = screenToWorld(clientX, clientY);
+        hoverPoint = -1; hoverEdge = -1; edgePoint = null;
+
+        // Sprawdź punkty
         for (let i = 0; i < tempPoints.length; i++) {
             const [px, pz] = tempPoints[i];
             const [sx, sz] = worldToScreen(px, pz);
-            if (Math.hypot(sx - touch.clientX, sz - touch.clientY) < 30) {
+            if (Math.hypot(sx - clientX, sz - clientY) < 30) {
                 hoverPoint = i;
-                break;
+                selectedPoint = i;
+                isDraggingPoint = true;
+                return;
+            }
+        }
+
+        // Sprawdź linie
+        if (tempPoints.length > 1) {
+            for (let i = 0; i < tempPoints.length - 1; i++) {
+                const a = tempPoints[i];
+                const b = tempPoints[i + 1];
+                const { dist, x, z } = pointDistanceToSegment(wx, wz, a[0], a[1], b[0], b[1]);
+                if (dist < 15 / getPixelScale().scale) {
+                    hoverEdge = i;
+                    edgePoint = { x, z, edge: i };
+                    return;
+                }
             }
         }
     }
-}, { passive: false });
+}
 
-canvas.addEventListener('touchmove', e => {
-    if (e.touches.length !== 1) return;
-    const touch = e.touches[0];
-    lastX = touch.clientX;
-    lastY = touch.clientY;
+function moveInteraction(e) {
+    const clientX = e.clientX || e.touches[0].clientX;
+    const clientY = e.clientY || e.touches[0].clientY;
+    lastX = clientX;
+    lastY = clientY;
 
     const elapsed = Date.now() - touchStartTime;
-    if (elapsed > 500 && !isLongPress) {
-        isLongPress = true;
+
+    if (isDrawing) {
+        if (isDraggingPoint) {
+            const [wx, wz] = screenToWorld(clientX, clientY);
+            tempPoints[selectedPoint] = [Math.round(wx), Math.round(wz)];
+        } else if (elapsed > 500 && !isPanning) {
+            isPanning = true;
+            isLongPress = true;
+        }
+    } else {
+        // Poza edycją – przesuwanie OD RAZU
         isPanning = true;
-        canvas.style.cursor = 'grabbing';
     }
 
     if (isPanning) {
         const ppb = getPixelScale().scale;
-        viewX = panStart.viewX - (touch.clientX - panStart.x) / ppb;
-        viewY = panStart.viewY - (touch.clientY - panStart.y) / ppb;
+        viewX = panStart.viewX - (clientX - panStart.x) / ppb;
+        viewY = panStart.viewY - (clientY - panStart.y) / ppb;
         clampView();
     }
 
-    // Przesuwanie punktu TYLKO jeśli nie ma long press
-    if (isDrawing && selectedPoint !== -1 && !isLongPress) {
-        const [wx, wz] = screenToWorld(touch.clientX, touch.clientY);
-        tempPoints[selectedPoint] = [Math.round(wx), Math.round(wz)];
-    }
-
     draw();
-}, { passive: false });
+}
 
-canvas.addEventListener('touchend', e => {
+function endInteraction(e) {
     const elapsed = Date.now() - touchStartTime;
 
-    if (!isLongPress && elapsed < 500) {
-        // KRÓTKIE KLIKNIĘCIE → DODAJ PUNKT LUB WYBIERZ
+    if (!isPanning && elapsed < 500) {
+        const clientX = lastX;
+        const clientY = lastY;
+
         if (isDrawing) {
-            if (lastX < 70 && lastY < 80) {
+            if (clientX < 70 && clientY < 80) {
                 savePolygon();
             } else if (hoverPoint !== -1) {
-                selectedPoint = hoverPoint;
+                tempPoints.splice(hoverPoint, 1);
+            } else if (edgePoint) {
+                tempPoints.splice(edgePoint.edge + 1, 0, [Math.round(edgePoint.x), Math.round(edgePoint.z)]);
             } else {
-                const [wx, wz] = screenToWorld(lastX, lastY);
+                const [wx, wz] = screenToWorld(clientX, clientY);
                 tempPoints.push([Math.round(wx), Math.round(wz)]);
             }
         }
     }
 
-    isLongPress = false;
     isPanning = false;
-    selectedPoint = -1;
-    canvas.style.cursor = isDrawing ? 'crosshair' : 'grab';
-    draw();
-});
-
-// === MYSZ (DESKTOP) ===
-canvas.addEventListener('mousedown', e => {
-    if (e.button !== 0) return;
-    touchStartTime = Date.now();
     isLongPress = false;
-    lastX = e.clientX;
-    lastY = e.clientY;
-    panStart = { x: e.clientX, y: e.clientY, viewX, viewY };
-});
-
-window.addEventListener('mousemove', e => {
-    lastX = e.clientX;
-    lastY = e.clientY;
-
-    const elapsed = Date.now() - touchStartTime;
-    if (elapsed > 500 && !isLongPress && isDrawing) {
-        isLongPress = true;
-        isPanning = true;
-        canvas.style.cursor = 'grabbing';
-    }
-
-    if (isPanning) {
-        const ppb = getPixelScale().scale;
-        viewX = panStart.viewX - (e.clientX - panStart.x) / ppb;
-        viewY = panStart.viewY - (e.clientY - panStart.y) / ppb;
-        clampView();
-    }
-
-    if (isDrawing && selectedPoint !== -1 && !isLongPress) {
-        const [wx, wz] = screenToWorld(e.clientX, e.clientY);
-        tempPoints[selectedPoint] = [Math.round(wx), Math.round(wz)];
-    }
-
-    draw();
-});
-
-window.addEventListener('mouseup', e => {
-    if (e.button !== 0) return;
-    const elapsed = Date.now() - touchStartTime;
-
-    if (!isLongPress && elapsed < 500) {
-        if (isDrawing) {
-            if (e.clientX < 70 && e.clientY < 80) {
-                savePolygon();
-            } else if (hoverPoint !== -1) {
-                selectedPoint = hoverPoint;
-            } else {
-                const [wx, wz] = screenToWorld(e.clientX, e.clientY);
-                tempPoints.push([Math.round(wx), Math.round(wz)]);
-            }
-        }
-    }
-
-    isLongPress = false;
-    isPanning = false;
+    isDraggingPoint = false;
     selectedPoint = -1;
-    canvas.style.cursor = isDrawing ? 'crosshair' : 'grab';
-    draw();
-});
-
-// === USUWANIE PUNKTÓW ===
-canvas.addEventListener('contextmenu', e => {
-    e.preventDefault();
-    if (isDrawing && hoverPoint !== -1) {
-        tempPoints.splice(hoverPoint, 1);
-        draw();
-    }
-});
-
-// === HOVER ===
-canvas.addEventListener('mousemove', e => {
-    if (!isDrawing || isLongPress) return;
-    const [wx, wz] = screenToWorld(e.clientX, e.clientY);
     hoverPoint = -1;
-    for (let i = 0; i < tempPoints.length; i++) {
-        const [px, pz] = tempPoints[i];
-        const [sx, sz] = worldToScreen(px, pz);
-        if (Math.hypot(sx - e.clientX, sz - e.clientY) < 30) {
-            hoverPoint = i;
-            break;
-        }
-    }
+    hoverEdge = -1;
+    edgePoint = null;
+    canvas.style.cursor = isDrawing ? 'crosshair' : 'grab';
     draw();
-});
+}
+
+// === EVENTY ===
+canvas.addEventListener('touchstart', startInteraction, { passive: false });
+canvas.addEventListener('touchmove', moveInteraction, { passive: false });
+canvas.addEventListener('touchend', endInteraction);
+
+canvas.addEventListener('mousedown', startInteraction);
+window.addEventListener('mousemove', moveInteraction);
+window.addEventListener('mouseup', endInteraction);
 
 // === RESZTA ===
 function savePolygon() {
@@ -522,7 +485,7 @@ document.getElementById('startDrawing').addEventListener('click', () => {
     isDrawing = true;
     tempPoints = [];
     canvas.style.cursor = 'crosshair';
-    info.textContent = 'Rysuj: tap=dodaj | przytrzymaj=przesuń | +=zapisz';
+    info.textContent = 'Tap=dodaj | tap punkt=usuń | przytrzymaj punkt=przesuń';
     draw();
 });
 
