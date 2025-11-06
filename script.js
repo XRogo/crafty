@@ -209,17 +209,22 @@ function loadTile(tx, ty, level) {
     const key = `${level.folder}_${tx}_${ty}`;
     if (cache.has(key)) return cache.get(key);
 
+    // TYLKO folder 2 (256px) ma PNG-i
+    const PNG_IN_256 = new Set(['-2_2', '-2_1', '-3_1', '-4_1', '-8_1', '-9_1', '-2_0', '-3_0', '-4_0', '-8_0', '-9_0', '4_-1', '-2_-1', '-3_-1', '-4_-1', '-6_-1', '-7_-1', '-2_-3', '-3_-3', '-2_-4', '1_1', '-1_1', '1_0', '0_0', '-1_0', '1_-1', '-1_-1', '0_1', '0_-1']);
+
     const tryLoad = (ext) => {
         const img = new Image();
         img.src = `tiles/${level.folder}/${tx}_${ty}.${ext}`;
         const p = new Promise(r => {
             img.onload = () => {
                 cache.set(key, img);
-                loadedTiles++;
-                if (loadedTiles > 8) {
+
+                // UKRYJ "ŁADOWANIE v9" OD RAZU PO PIERWSZYM KAFELKU
+                if (!loading.style.display || loading.style.display === 'block') {
                     loading.style.opacity = '0';
-                    setTimeout(() => loading.style.display = 'none', 500);
+                    setTimeout(() => loading.style.display = 'none', 300);
                 }
+
                 r(img);
             };
             img.onerror = () => r(null);
@@ -228,13 +233,13 @@ function loadTile(tx, ty, level) {
         return p;
     };
 
-    // Najpierw PNG, potem WebP
-    const png = tryLoad('png');
-    png.then(img => {
-        if (!img) tryLoad('webp');
-    });
+    if (level.folder === 2 && PNG_IN_256.has(`${tx}_${ty}`)) {
+        const png = tryLoad('png');
+        png.then(img => { if (!img) tryLoad('webp'); });
+        return png;
+    }
 
-    return png;
+    return tryLoad('webp');
 }
 
 function draw() {
