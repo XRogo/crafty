@@ -609,7 +609,7 @@ window.polygonsData = [
     fillColor: 'rgba(99, 99, 99, 0)',
     closePath: true,
     name: 'Ul. Wiaduktowa',
-    category: 2
+    category: 3
 },
 //ul debowa
 {
@@ -618,7 +618,7 @@ window.polygonsData = [
     fillColor: 'rgba(99, 99, 99, 0)',
     closePath: true,
     name: 'Ul. Dębowa',
-    category: 2
+    category: 3
 },
 //ul icaklifowa
 {
@@ -627,7 +627,7 @@ window.polygonsData = [
     fillColor: 'rgba(99, 99, 99, 0)',
     closePath: true,
     name: 'Ul. Klifowa',
-    category: 2
+    category: 3
 },
 //ul przez wieś
 {
@@ -637,7 +637,7 @@ window.polygonsData = [
     fillColor: 'rgba(255, 255, 255, 0.2)',
     closePath: true,
     name: 'Ul. Przez Wioskę',
-    category: 2
+    category: 3
 },
 //ul do coolphona
 {
@@ -647,7 +647,7 @@ window.polygonsData = [
     fillColor: 'rgba(255, 255, 255, 0.2)',
     closePath: true,
     name: 'Ul. Do Coolphona',
-    category: 2
+    category: 3
 },
 //ul hopsającyych mobów
 {
@@ -656,7 +656,7 @@ window.polygonsData = [
     fillColor: 'rgba(255, 255, 255, 0.2)',
     closePath: true,
     name: 'Ul. Hopsających mobów',
-    category: 2
+    category: 3
 },
 //ul od mikusierro
 {
@@ -667,7 +667,7 @@ window.polygonsData = [
     fillColor: 'rgba(99, 99, 99, 0.2)',
     closePath: true,
     name: '.',
-    category: 2
+    category: 3
 },
 //ul od dziur morisa do dębowej
 {
@@ -676,7 +676,7 @@ window.polygonsData = [
     fillColor: 'rgba(99, 99, 99, 0.2)',
     closePath: true,
     name: '.',
-    category: 2
+    category: 3
 },
 //Border
    // {
