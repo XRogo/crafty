@@ -478,7 +478,7 @@ canvas.addEventListener('wheel', e => {
     const worldX = viewX + (mx - innerWidth/2) / oldPpb;
     const worldZ = viewY + (my - innerHeight/2) / oldPpb;
 
-    zoom = Math.max(0.1, Math.min(40, zoom + (e.deltaY > 0 ? -0.3 : 0.3)));
+    zoom = Math.max(0.1, Math.min(40, zoom + (e.deltaY > 0 ? -0.1 : 0.1)));
     slider.value = zoom;
 
     const newPpb = getPixelScale().scale;
