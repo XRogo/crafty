@@ -1,4 +1,3 @@
-// pozycje.js – DZIAŁA LOKALNIE
 window.polygonsData = [
 // pozycja terne zamek xrogo
 {
@@ -157,11 +156,11 @@ window.polygonsData = [
     },
 //farma coolphone
 {
-    points: [[2854,1714],[2905,1651],[2939,1648],[2976,1681],[2997,1746],[2988,1791],[2944,1812],[2890,1804],[2857,1777]],
-    lineColor: 'rgba(240, 0, 164, 1)',
-    fillColor: 'rgba(240, 0, 164, 0.2)',
+    points: [[2895,1728],[2960,1728],[2960,1791],[2895,1791]],
+    lineColor: "rgba(240, 0, 164, 1)",
+    fillColor: "rgba(240, 0, 164, 0.2)",
     closePath: true,
-    name: 'Farma Coolphona',
+    name: "Farma Coolphona",
     category: 1
 },
 //lays publiczne
@@ -178,20 +177,20 @@ window.polygonsData = [
 },
 //farma papiera
 {
-    points: [[738,169],[744,148],[760,136],[779,137],[792,144],[806,164],[807,181],[786,202],[765,204],[746,193]],
-    lineColor: 'rgba(10, 136, 199, 1)',
-    fillColor: 'rgba(10, 136, 199, 0.2)',
-    closePath: true,
-    name: 'Farma papiera',
-    category: 1
+ points: [[748,165],[769,144],[770,144],[791,165],[791,166],[770,187],[769,187],[748,166]],
+ lineColor: "rgba(10, 136, 199, 1)",
+ fillColor: "rgba(10, 136, 199, 0.2)",
+ closePath: true,
+ name: "Farma papiera",
+ category: 1
 },
 //farma XRogo
 {
-    points: [[414,1462],[421,1484],[441,1488],[463,1484],[469,1454],[457,1437],[428,1433],[417,1438]],
-    lineColor: 'rgba(250, 100, 0, 1)',
-    fillColor: 'rgba(250, 100, 0, 0.2)',
+    points: [[423,1448],[423,1473],[452,1473],[452,1448],[442,1448],[442,1445],[432,1445],[432,1448]],
+    lineColor: "rgba(250, 100, 0, 1)",
+    fillColor: "rgba(250, 100, 0, 0.2)",
     closePath: true,
-    name: 'Farma XRogo',
+    name: "Farma XRogo",
     category: 1
 },
 //Dzielnica Handlowa
@@ -296,12 +295,12 @@ window.polygonsData = [
 },
 //damoke jokera
 {
-    points: [[-269,-259],[-269,-232],[-292,-232],[-292,-257]],
-    lineColor: 'rgba(248, 16, 201, 0,9)',
-    fillColor: 'rgba(248, 16, 201, 0.25)',
-    closePath: true,
-    name: 'Domek z kanciastej \n Doliny JJAYPOKERA',
-    category: 1
+ points: [[-269,-257],[-269,-232],[-292,-232],[-292,-257]],
+ lineColor: "rgba(248, 16, 201, 0,9)",
+ fillColor: "rgba(248, 16, 201, 0.25)",
+ closePath: true,
+ name: "Domek z kanciastej Doliny JJAYPOKERA",
+ category: 1
 },
 //kopalnie pustynia
 {
@@ -585,12 +584,12 @@ window.polygonsData = [
 
 //zetie???
 {
-    points: [[-478,49],[-548,77],[-625,82],[-644,19],[-606,-48],[-584,-88],[-567,-138],[-551,-211],[-470,-227],[-341,-246],[-307,-208],[-259,-201],[-208,-161],[-212,-105],[-241,-47],[-280,6],[-306,15],[-322,52]],
-    lineColor: "#edba02",
-    fillColor: "#edba0233",
-    closePath: true,
-    name: "Zetie?",
-    category: 1
+ points: [[-625,82],[-644,19],[-606,-48],[-584,-88],[-567,-138],[-545,-247],[-341,-246],[-307,-208],[-258,-204],[-204,-167],[-204,-139],[-206,-107],[-220,-62],[-234,-52],[-239,-35],[-263,-12],[-268,11],[-285,14],[-297,13],[-304,24],[-315,68]],
+ lineColor: "#edba02",
+ fillColor: "#edba0233",
+ closePath: false,
+ name: "Zetie?",
+ category: 1
 },
 //papjerrrr???
 {
