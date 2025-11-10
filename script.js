@@ -43,7 +43,6 @@ const LEVELS = [
     { size: 256, folder: 2, minZoom: 0.70, maxZoom: 40.00 }
 ];
 const WORLD_SIZE = 10000;
-const MIN_HOLD_TIME = 200;
 
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
@@ -296,13 +295,39 @@ function drawPolygons() {
 }
 //linia 180
 
-//wyświetlanie poligonów – KLIKANIE (Z CZYSYM CTX!)
-function findHoveredPoly(wx, wz) {
-    const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = 1;
-    tempCanvas.height = 1;
-    const tempCtx = tempCanvas.getContext('2d');
+//wyświetlanie poligonów – KLIKANIE (CUSTOM DETEKCJA BEZ CANVAS – FIX PRECYZJI)
+function isPointInPolygon(x, z, points) {
+    let inside = false;
+    for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+        const xi = points[i][0], zi = points[i][1];
+        const xj = points[j][0], zj = points[j][1];
+        const intersect = ((zi > z) !== (zj > z)) && (x < (xj - xi) * (z - zi) / (zj - zi) + xi);
+        if (intersect) inside = !inside;
+    }
+    return inside;
+}
 
+function pointToLineDistance(px, pz, x1, z1, x2, z2) {
+    const A = px - x1, B = pz - z1, C = x2 - x1, D = z2 - z1;
+    const dot = A * C + B * D;
+    const lenSq = C * C + D * D;
+    let param = -1;
+    if (lenSq !== 0) param = dot / lenSq;
+    let xx, zz;
+    if (param < 0) {
+        xx = x1;
+        zz = z1;
+    } else if (param > 1) {
+        xx = x2;
+        zz = z2;
+    } else {
+        xx = x1 + param * C;
+        zz = z1 + param * D;
+    }
+    return Math.hypot(px - xx, pz - zz);
+}
+
+function findHoveredPoly(wx, wz) {
     for (let i = polygons.length - 1; i >= 0; i--) {
         const p = polygons[i];
         if (!window.visibleCategories?.[p.category]) continue;
@@ -313,14 +338,18 @@ function findHoveredPoly(wx, wz) {
             minX = Math.min(minX,x); maxX = Math.max(maxX,x);
             minZ = Math.min(minZ,z); maxZ = Math.max(maxZ,z);
         });
-        if (wx < minX-30 || wx > maxX+30 || wz < minZ-30 || wz > maxZ+30) continue;
+        if (wx < minX - 50 || wx > maxX + 50 || wz < minZ - 50 || wz > maxZ + 50) continue;
 
-        tempCtx.beginPath();
-        p.points.forEach(([x,z], j) => j === 0 ? tempCtx.moveTo(x,z) : tempCtx.lineTo(x,z));
-        if (p.closePath && p.category === 1) tempCtx.closePath();
-
-        if (tempCtx.isPointInPath(wx, wz)) {
-            return i;
+        if (p.category === 1 && p.closePath) {
+            if (isPointInPolygon(wx, wz, p.points)) return i;
+        } else {
+            for (let j = 0; j < p.points.length - 1; j++) {
+                const [x1, z1] = p.points[j];
+                const [x2, z2] = p.points[j + 1];
+                const dist = pointToLineDistance(wx, wz, x1, z1, x2, z2);
+                const tolerance = 10 / zoom;  // Tolerancja klikania na linię
+                if (dist <= tolerance) return i;
+            }
         }
     }
     return -1;
@@ -368,7 +397,7 @@ function drawTempPolygon() {
         ctx.lineWidth = 2 / zoom;
         ctx.stroke();
     }
-    ctx.restore(); // NAPRAWIONE!
+    ctx.restore();
 }
 //linia 220
 
@@ -478,31 +507,33 @@ canvas.addEventListener('pointerup', e => {
     const elapsed = Date.now() - clickStartTime;
     const dist = Math.hypot(e.clientX - clickStartX, e.clientY - clickStartY);
 
+    // Zawsze kończymy przeciąganie
     if (isDraggingPoint) {
         isDraggingPoint = false;
         draggedPointIndex = -1;
         canvas.releasePointerCapture(e.pointerId);
     }
 
+    // Zakończ panoramowanie
     if (isPanning) {
         isPanning = false;
         canvas.releasePointerCapture(e.pointerId);
-        if (elapsed < MIN_HOLD_TIME && dist < 10 && !isDrawing) {
-            const [wx, wz] = screenToWorld(e.clientX, e.clientY);
-            const idx = findHoveredPoly(wx, wz);
-            if (idx !== -1) {
-                selectedPoly = polygons[idx];
-                document.getElementById('view-name').textContent = selectedPoly.name || '(brak nazwy)';
-                document.getElementById('view-desc').textContent = selectedPoly.opis || '(brak opisu)';
-                editModal.style.display = 'block';
-                draw();
-            }
+
+        // SPRAWDZAMY TYLKO CZY POLIGON BYŁ PODŚWIETLONY (hoveredPoly)
+        if (elapsed <= 200 && dist < 20 && !isDrawing && hoveredPoly !== -1) {
+            selectedPoly = polygons[hoveredPoly];
+            document.getElementById('view-name').textContent = selectedPoly.name || '(brak nazwy)';
+            document.getElementById('view-desc').textContent = selectedPoly.opis || '(brak opisu)';
+            editModal.style.display = 'block';
+            draw();
         }
     }
 
-    if (elapsed < MIN_HOLD_TIME && dist < 10 && isDrawing) {
+    // Rysowanie – bez zmian
+    if (elapsed <= 200 && dist < 20 && isDrawing) {
         const [wx, wz] = screenToWorld(e.clientX, e.clientY);
         detectHover(e.clientX, e.clientY);
+
         if (clickWasOnPoint && hoverPoint !== -1) {
             tempPoints.splice(hoverPoint, 1);
         } else if (clickWasOnEdge && hoverEdge !== -1 && edgePoint) {
@@ -512,6 +543,9 @@ canvas.addEventListener('pointerup', e => {
         }
         draw();
     }
+
+    clickWasOnPoint = false;
+    clickWasOnEdge = false;
 });
 //linia 260
 
