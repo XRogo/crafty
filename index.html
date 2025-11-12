@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="pl">
 <head>
-<!-- v180 -->>
+    <!-- v180 -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -67,6 +67,32 @@
         .cat-btn.selected {
             background:#0f0; color:#000;
         }
+        /* NOWE: Przyciski kategorii w prawym dolnym rogu */
+        #category-toggle {
+            position: absolute;
+            bottom: 80px; /* nad suwakiem */
+            right: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            z-index: 30;
+        }
+        .toggle-btn {
+            padding: 8px 16px;
+            background: #0f0;
+            color: #000;
+            border: none;
+            border-radius: 10px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 14px;
+            box-shadow: 0 0 10px #0f0;
+            transition: all 0.3s;
+        }
+        .toggle-btn.off {
+            background: #f00;
+            box-shadow: 0 0 10px #f00;
+        }
     </style>
     <!-- PRZYCISK POLIGONY -->
     <button id="open-editor-btn" style="
@@ -108,7 +134,6 @@
             <div style="display:flex; gap:8px; margin-top:8px;">
                 <button class="cat-btn" data-cat="1">Teren</button>
                 <button class="cat-btn" data-cat="3">Droga</button>
-                <!-- <button class="cat-btn" data-cat="2">Kolej</button> -->
             </div>
         </div>
         <div style="margin:10px 0;">
@@ -119,6 +144,15 @@
                 cursor:pointer; font-size:14px; box-shadow:0 0 10px #0f0;
                 margin-top:5px;
             ">ON</button>
+        </div>
+        <div style="margin:10px 0;">
+            <label>Tymczasowe:</label><br>
+            <button id="temporaryToggle" style="
+                padding:8px 16px; background:#f00; color:#000;
+                border:none; border-radius:10px; font-weight:bold;
+                cursor:pointer; font-size:14px; box-shadow:0 0 10px #f00;
+                margin-top:5px;
+            ">OFF</button>
         </div>
         <div style="margin:10px 0;">
             <label>Kolor obramowania:</label>
@@ -141,20 +175,6 @@
                 border:none; border-radius:10px; font-weight:bold;
                 cursor:pointer; font-size:16px; box-shadow:0 0 15px #0f0;
             ">ROZPOCZNIJ RYSOWANIE</button>
-        </div>
-    </div>
-    <!-- MODAL PODGLĄDU -->
-    <div id="edit-modal" style="position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:rgba(0,0,0,0.95); color:#0f0; padding:20px; border:2px solid #0f0; border-radius:15px; z-index:1001; width:90%; max-width:500px; display:none; box-shadow:0 0 30px #0f0; font-family:'Courier New';">
-        <h3 style="text-align:center; margin-bottom:15px; text-shadow:0 0 10px #0f0;">Dodaj teren</h3>
-        <div style="margin:10px 0; padding:8px; background:#111; border:1px solid #0f0; border-radius:6px; min-height:30px;">
-            <strong>Nazwa:</strong> <span id="view-name"></span>
-        </div>
-        <div style="margin:10px 0; padding:8px; background:#111; border:1px solid #0f0; border-radius:6px; min-height:60px;">
-            <strong>Opis:</strong><br><span id="view-desc" style="white-space: pre-wrap;"></span>
-        </div>
-        <div style="text-align:center; margin-top:15px; display:flex; gap:10px; justify-content:center;">
-            <button id="edit-start" class="cat-btn">EDYTUJ</button>
-            <button id="edit-close" class="cat-btn">ZAMKNIJ</button>
         </div>
     </div>
     <!-- MODAL KODU -->
@@ -195,12 +215,18 @@
         <div id="info">Zoom: 1.00x | (0, 0)</div>
         <div id="loading">ŁADOWANIE v9...</div>
         <canvas id="canvas"></canvas>
+        <!-- NOWE: Przełączniki kategorii -->
+        <div id="category-toggle">
+            <button class="toggle-btn" data-cat="1">Teren</button>
+            <button class="toggle-btn" data-cat="3">Drogi</button>
+            <button class="toggle-btn off" data-type="projects">Projekty</button>
+        </div>
         <div id="zoom-container">
             <input type="range" id="zoom-slider" min="0.1" max="40" step="0.05" value="1">
             <div id="zoom-label">Zoom: 1.00x</div>
         </div>
     </div>
-    <!-- KLUCZOWE: pozycje.js PRZED script.js + type="module" -->
+    <!-- KLUCZOWE: pozycje.js PRZED script.js -->
     <script src="pozycje.js"></script>
     <script src="script.js"></script>
 </body>

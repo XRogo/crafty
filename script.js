@@ -1,6 +1,5 @@
 /* ==============================================================
    MAPA MINECRAFT v21 – FINALNA WERSJA – WSZYSTKO DZIAŁA!
-   Klikanie na poligon: 100% | Miganie: OK | Edytor: OK | Zoom: OK
    ============================================================== */
 
 // POLIGONY I STANY – NAJPIERW!
@@ -11,8 +10,6 @@ let hoverPoint = -1;
 let hoverEdge = -1;
 let edgePoint = null;
 let blink = true;
-let hoveredPoly = -1;
-let selectedPoly = null;
 
 if (window.polygonsData && Array.isArray(window.polygonsData)) {
     polygons = window.polygonsData.map(p => ({
@@ -22,7 +19,8 @@ if (window.polygonsData && Array.isArray(window.polygonsData)) {
         closePath: p.closePath !== false,
         name: p.name || '',
         opis: p.opis || '',
-        category: p.category || 1
+        category: p.category || 1,
+        temporary: p.temporary || false
     }));
 }
 
@@ -32,7 +30,8 @@ let editorConfig = {
     fillColor: '#00ff0033',
     name: '',
     opis: '',
-    closePath: true
+    closePath: true,
+    temporary: false
 };
 
 //wczytywanie mapy
@@ -55,12 +54,12 @@ const editorPanel = document.getElementById('editor-panel');
 const closeBtn = document.getElementById('close-editor');
 const startDrawingBtn = document.getElementById('startDrawing');
 const closePathToggle = document.getElementById('closePathToggle');
+const temporaryToggle = document.getElementById('temporaryToggle');
 const codeModal = document.getElementById('code-modal');
 const codeText = document.getElementById('code-text');
 const copyBtn = document.getElementById('copy-btn');
 const closeModalBtn = document.getElementById('close-modal');
 const returnBtn = document.getElementById('return-btn');
-const editModal = document.getElementById('edit-modal');
 
 let zoom = 1;
 let viewX = 0, viewY = 0;
@@ -75,7 +74,13 @@ let clickStartTime = 0;
 let clickStartX = 0, clickStartY = 0;
 let clickWasOnPoint = false;
 let clickWasOnEdge = false;
-//linia 60
+
+// Widoczność
+window.visibleCategories = {
+    1: true,
+    3: true
+};
+window.visibleTemporary = false;
 
 //wczytywanie mapy – resize i skalowanie
 function resize() {
@@ -259,20 +264,20 @@ function drawPolygons() {
     ctx.scale(ppb, ppb);
     ctx.translate(-viewX, -viewY);
 
-    polygons.forEach((p, i) => {
-        if (!window.visibleCategories?.[p.category]) return;
+    polygons.forEach((p) => {
+        if (!window.visibleCategories[p.category]) return;
+        if (p.temporary && !window.visibleTemporary) return;
         if (!p.points?.length) return;
-        const isHovered = i === hoveredPoly;
-        const { points, lineColor, fillColor, closePath, name, category } = p;
+        const { points, lineColor, fillColor, closePath, name, category, temporary } = p;
 
         ctx.beginPath();
         points.forEach(([x, z], i) => i === 0 ? ctx.moveTo(x, z) : ctx.lineTo(x, z));
-        if (closePath && category === 1) ctx.closePath();
+        if (closePath) ctx.closePath();
 
-        ctx.fillStyle = category === 1 ? fillColor : 'transparent';
+        ctx.fillStyle = (category === 1 ? fillColor : 'transparent');
         ctx.fill();
         ctx.strokeStyle = lineColor;
-        ctx.lineWidth = isHovered ? 5 / zoom : (category === 1 ? 2.5 / zoom : 6 / zoom);
+        ctx.lineWidth = (category === 1 ? 2.5 / zoom : 6 / zoom);
         ctx.stroke();
 
         if (name && (category === 1 || zoom > 3)) {
@@ -284,77 +289,16 @@ function drawPolygons() {
                 ctx.strokeStyle = 'black';
                 ctx.lineWidth = 1.5 / zoom;
                 ctx.strokeText(name, cx, cz);
-                ctx.fillStyle = isHovered ? '#0f0' : 'white';
+                ctx.fillStyle = 'white';
                 ctx.fillText(name, cx, cz);
             } else {
-                drawTextAlongPath(name, points, 0, isHovered ? '#0f0' : 'white');
+                drawTextAlongPath(name, points, 0, 'white');
             }
         }
     });
     ctx.restore(); // NAPRAWIONE!
 }
 //linia 180
-
-//wyświetlanie poligonów – KLIKANIE (CUSTOM DETEKCJA BEZ CANVAS – FIX PRECYZJI)
-function isPointInPolygon(x, z, points) {
-    let inside = false;
-    for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
-        const xi = points[i][0], zi = points[i][1];
-        const xj = points[j][0], zj = points[j][1];
-        const intersect = ((zi > z) !== (zj > z)) && (x < (xj - xi) * (z - zi) / (zj - zi) + xi);
-        if (intersect) inside = !inside;
-    }
-    return inside;
-}
-
-function pointToLineDistance(px, pz, x1, z1, x2, z2) {
-    const A = px - x1, B = pz - z1, C = x2 - x1, D = z2 - z1;
-    const dot = A * C + B * D;
-    const lenSq = C * C + D * D;
-    let param = -1;
-    if (lenSq !== 0) param = dot / lenSq;
-    let xx, zz;
-    if (param < 0) {
-        xx = x1;
-        zz = z1;
-    } else if (param > 1) {
-        xx = x2;
-        zz = z2;
-    } else {
-        xx = x1 + param * C;
-        zz = z1 + param * D;
-    }
-    return Math.hypot(px - xx, pz - zz);
-}
-
-function findHoveredPoly(wx, wz) {
-    for (let i = polygons.length - 1; i >= 0; i--) {
-        const p = polygons[i];
-        if (!window.visibleCategories?.[p.category]) continue;
-        if (!p.points?.length) continue;
-
-        let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
-        p.points.forEach(([x,z]) => {
-            minX = Math.min(minX,x); maxX = Math.max(maxX,x);
-            minZ = Math.min(minZ,z); maxZ = Math.max(maxZ,z);
-        });
-        if (wx < minX - 50 || wx > maxX + 50 || wz < minZ - 50 || wz > maxZ + 50) continue;
-
-        if (p.category === 1 && p.closePath) {
-            if (isPointInPolygon(wx, wz, p.points)) return i;
-        } else {
-            for (let j = 0; j < p.points.length - 1; j++) {
-                const [x1, z1] = p.points[j];
-                const [x2, z2] = p.points[j + 1];
-                const dist = pointToLineDistance(wx, wz, x1, z1, x2, z2);
-                const tolerance = 10 / zoom;  // Tolerancja klikania na linię
-                if (dist <= tolerance) return i;
-            }
-        }
-    }
-    return -1;
-}
-//linia 200
 
 //rysowanie i edytowanie – tymczasowy poligon
 function drawTempPolygon() {
@@ -370,10 +314,10 @@ function drawTempPolygon() {
     ctx.beginPath();
     tempPoints.forEach(([x, z], i) => i === 0 ? ctx.moveTo(x, z) : ctx.lineTo(x, z));
     if (editorConfig.closePath && tempPoints.length > 2) ctx.closePath();
-    ctx.fillStyle = editorConfig.fillColor;
+    ctx.fillStyle = (editorConfig.category === 1 ? editorConfig.fillColor : 'transparent');
     ctx.fill();
     ctx.strokeStyle = editorConfig.lineColor;
-    ctx.lineWidth = 3/zoom;
+    ctx.lineWidth = (editorConfig.category === 1 ? 3/zoom : 6/zoom);
     ctx.stroke();
 
     tempPoints.forEach(([x, z], i) => {
@@ -496,10 +440,6 @@ canvas.addEventListener('pointermove', e => {
     if (isDrawing) {
         detectHover(e.clientX, e.clientY);
         draw();
-    } else {
-        const [wx, wz] = screenToWorld(e.clientX, e.clientY);
-        hoveredPoly = findHoveredPoly(wx, wz);
-        draw();
     }
 });
 
@@ -518,15 +458,6 @@ canvas.addEventListener('pointerup', e => {
     if (isPanning) {
         isPanning = false;
         canvas.releasePointerCapture(e.pointerId);
-
-        // SPRAWDZAMY TYLKO CZY POLIGON BYŁ PODŚWIETLONY (hoveredPoly)
-        if (elapsed <= 200 && dist < 20 && !isDrawing && hoveredPoly !== -1) {
-            selectedPoly = polygons[hoveredPoly];
-            document.getElementById('view-name').textContent = selectedPoly.name || '(brak nazwy)';
-            document.getElementById('view-desc').textContent = selectedPoly.opis || '(brak opisu)';
-            editModal.style.display = 'block';
-            draw();
-        }
     }
 
     // Rysowanie – bez zmian
@@ -621,7 +552,8 @@ function savePolygon() {
     fullCode += ' closePath: ' + poly.closePath + ',\n';
     if (poly.name) fullCode += ' name: "' + poly.name + '",\n';
     if (poly.opis) fullCode += ' opis: "' + poly.opis.replace(/"/g, '\\"') + '",\n';
-    fullCode += ' category: ' + poly.category + '\n';
+    fullCode += ' category: ' + poly.category + ',\n';
+    if (poly.temporary) fullCode += ' temporary: ' + poly.temporary + '\n';
     fullCode += '},';
     codeText.value = fullCode;
     codeModal.style.display = 'block';
@@ -629,15 +561,11 @@ function savePolygon() {
 }
 
 function finalizeSave(add = true) {
-    if (selectedPoly) {
-        Object.assign(selectedPoly, window.tempPoly);
-        selectedPoly = null;
-    } else if (add) {
+    if (add) {
         polygons.push(window.tempPoly);
     }
     isDrawing = false;
     tempPoints = [];
-    hoveredPoly = -1;
     canvas.style.cursor = 'grab';
     editorPanel.style.display = 'none';
     openBtn.style.display = 'block';
@@ -654,6 +582,8 @@ openBtn.addEventListener('click', () => {
     startDrawingBtn.textContent = isDrawing ? 'ZAKOŃCZ RYSOWANIE' : 'ROZPOCZNIJ RYSOWANIE';
     closePathToggle.textContent = editorConfig.closePath ? 'ON' : 'OFF';
     closePathToggle.style.background = editorConfig.closePath ? '#0f0' : '#f00';
+    temporaryToggle.textContent = editorConfig.temporary ? 'ON' : 'OFF';
+    temporaryToggle.style.background = editorConfig.temporary ? '#0f0' : '#f00';
     document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('selected'));
     document.querySelector(`.cat-btn[data-cat="${editorConfig.category}"]`).classList.add('selected');
 });
@@ -690,6 +620,13 @@ closePathToggle.addEventListener('click', () => {
     editorConfig.closePath = !editorConfig.closePath;
     closePathToggle.textContent = editorConfig.closePath ? 'ON' : 'OFF';
     closePathToggle.style.background = editorConfig.closePath ? '#0f0' : '#f00';
+    if (isDrawing) draw();
+});
+
+temporaryToggle.addEventListener('click', () => {
+    editorConfig.temporary = !editorConfig.temporary;
+    temporaryToggle.textContent = editorConfig.temporary ? 'ON' : 'OFF';
+    temporaryToggle.style.background = editorConfig.temporary ? '#0f0' : '#f00';
     if (isDrawing) draw();
 });
 
@@ -734,32 +671,6 @@ window.addEventListener('keydown', e => {
     }
 });
 
-document.getElementById('edit-start').onclick = () => {
-    editModal.style.display = 'none';
-    editorPanel.style.display = 'block';
-    openBtn.style.display = 'none';
-    isDrawing = true;
-    tempPoints = selectedPoly.points.map(p => [...p]);
-    editorConfig = { ...selectedPoly };
-    document.getElementById('polyName').value = selectedPoly.name;
-    document.getElementById('polyDesc').value = selectedPoly.opis || '';
-    document.getElementById('lineColor').value = selectedPoly.lineColor.slice(0,7);
-    document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('selected'));
-    document.querySelector(`.cat-btn[data-cat="${selectedPoly.category}"]`).classList.add('selected');
-    closePathToggle.textContent = selectedPoly.closePath ? 'ON' : 'OFF';
-    closePathToggle.style.background = selectedPoly.closePath ? '#0f0' : '#f00';
-    canvas.style.cursor = 'crosshair';
-    info.textContent = 'EDYTUJESZ – LPM + przytrzymaj >0.2s → usuń';
-    draw();
-};
-
-document.getElementById('edit-close').onclick = () => {
-    editModal.style.display = 'none';
-    selectedPoly = null;
-    hoveredPoly = -1;
-    draw();
-};
-
 copyBtn.addEventListener('click', () => {
     navigator.clipboard.writeText(codeText.value).then(() => alert('SKOPIOWANO!')).catch(() => prompt('WKLEJ DO pozycje.js:', codeText.value));
 });
@@ -776,16 +687,18 @@ returnBtn.addEventListener('click', () => {
     draw();
 });
 
-document.addEventListener('click', e => {
-    if (editModal.style.display === 'block') {
-        const rect = editModal.getBoundingClientRect();
-        if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) {
-            editModal.style.display = 'none';
-            selectedPoly = null;
-            hoveredPoly = -1;
-            draw();
+// Przełączniki widoczności
+document.querySelectorAll('#category-toggle .toggle-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        if (btn.dataset.cat) {
+            const cat = parseInt(btn.dataset.cat);
+            window.visibleCategories[cat] = !window.visibleCategories[cat];
+        } else if (btn.dataset.type === 'projects') {
+            window.visibleTemporary = !window.visibleTemporary;
         }
-    }
+        btn.classList.toggle('off');
+        draw();
+    });
 });
 
 canvas.style.cursor = 'grab';
