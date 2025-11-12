@@ -8,30 +8,47 @@ let isDrawing = false;
 let tempPoints = [];
 let hoverPoint = -1;
 let hoverEdge = -1;
+let hoverConnection = -1;
 let edgePoint = null;
 let blink = true;
+let selectingFrom = false;
+let settingIn = false;
+let settingOut = false;
+let inPointIndex = -1;
+let outPointIndex = -1;
+let connectionBlinkColor = '#ffff00'; // żółty/niebiesko
+let isStartSnapped = false;
+let isEndSnapped = false;
+const SNAP_THRESHOLD = 10; // próg snap w blokach
 
 if (window.polygonsData && Array.isArray(window.polygonsData)) {
     polygons = window.polygonsData.map(p => ({
         points: p.points || [],
+        location: p.location || null,
         lineColor: p.lineColor || '#00ff00',
         fillColor: p.fillColor || '#00ff0033',
         closePath: p.closePath !== false,
         name: p.name || '',
         opis: p.opis || '',
-        category: p.category || 1,
-        temporary: p.temporary || false
+        category: p.category === 1 ? 'terrain' : p.category === 3 ? 'road' : p.category || 'terrain',
+        temporary: p.temporary || false,
+        in: p.in || null,
+        out: p.out || null,
+        from: p.from || null,
+        to: p.to || null
     }));
 }
 
 let editorConfig = {
-    category: 1,
+    category: 'terrain',
     lineColor: '#00ff00',
     fillColor: '#00ff0033',
     name: '',
     opis: '',
     closePath: true,
-    temporary: false
+    temporary: false,
+    from: null,
+    to: null
 };
 
 //wczytywanie mapy
@@ -50,6 +67,10 @@ const loading = document.getElementById('loading');
 const slider = document.getElementById('zoom-slider');
 const zoomLabel = document.getElementById('zoom-label');
 const openBtn = document.getElementById('open-editor-btn');
+const openRailBtn = document.getElementById('open-rail-btn');
+const editModeBtn = document.getElementById('edit-mode-btn');
+const railPanel = document.getElementById('rail-mode-panel');
+const closeRail = document.getElementById('close-rail');
 const editorPanel = document.getElementById('editor-panel');
 const closeBtn = document.getElementById('close-editor');
 const startDrawingBtn = document.getElementById('startDrawing');
@@ -60,6 +81,20 @@ const codeText = document.getElementById('code-text');
 const copyBtn = document.getElementById('copy-btn');
 const closeModalBtn = document.getElementById('close-modal');
 const returnBtn = document.getElementById('return-btn');
+const railInfo = document.getElementById('rail-info');
+const railEditorPanel = document.getElementById('rail-editor-panel');
+const closeRailEditor = document.getElementById('close-rail-editor');
+const railCategory = document.getElementById('rail-category');
+const railTemporaryToggle = document.getElementById('rail-temporaryToggle');
+const railLineColor = document.getElementById('rail-lineColor');
+const railPolyName = document.getElementById('rail-polyName');
+const railPolyDesc = document.getElementById('rail-polyDesc');
+const railOpisSection = document.getElementById('rail-opis-section');
+const railStationButtons = document.getElementById('rail-station-buttons');
+const railAddInBtn = document.getElementById('rail-add-in-btn');
+const railAddOutBtn = document.getElementById('rail-add-out-btn');
+const railStartDrawing = document.getElementById('rail-startDrawing');
+const catSelection = document.getElementById('cat-selection');
 
 let zoom = 1;
 let viewX = 0, viewY = 0;
@@ -77,8 +112,11 @@ let clickWasOnEdge = false;
 
 // Widoczność
 window.visibleCategories = {
-    1: true,
-    3: true
+    'terrain': true,
+    'road': true,
+    'station': true,
+    'intersection': true,
+    'rail': true
 };
 window.visibleTemporary = false;
 
@@ -92,7 +130,6 @@ function resize() {
     ctx.imageSmoothingEnabled = false;
     draw();
 }
-//linia 80
 
 window.addEventListener('resize', resize);
 resize();
@@ -131,7 +168,6 @@ function loadTile(tx, ty, level) {
         cache.set(key, p);
         return p;
     };
-//linia 100
 
     if (level.folder === 2 && PNG_IN_256.has(`${tx}_${ty}`)) {
         const png = tryLoad('png');
@@ -171,7 +207,6 @@ function drawTiles() {
     }
     ctx.restore();
 }
-//linia 120
 
 //informacje o pozycji i zoomie
 function worldToScreen(x, z) {
@@ -203,7 +238,6 @@ function updateInfo() {
     zoomLabel.textContent = `Zoom: ${zoom.toFixed(2)}x`;
     slider.value = zoom;
 }
-//linia 140
 
 //wyświetlanie poligonów – pomocnicze
 function calculateCentroid(points) {
@@ -252,7 +286,6 @@ function drawTextAlongPath(text, points, offset = 0, color = 'white') {
         travelled += segLen;
     }
 }
-//linia 160
 
 //wyświetlanie poligonów – RYSOWANIE (Z RESTORE!)
 function drawPolygons() {
@@ -267,24 +300,35 @@ function drawPolygons() {
     polygons.forEach((p) => {
         if (!window.visibleCategories[p.category]) return;
         if (p.temporary && !window.visibleTemporary) return;
-        if (!p.points?.length) return;
-        const { points, lineColor, fillColor, closePath, name, category, temporary } = p;
+        let points = p.points || [];
+        if (p.category === 'intersection' && p.location) {
+            const [cx, cz] = p.location[0];
+            const size = 1.5;
+            points = [
+                [cx - size, cz - size],
+                [cx + size, cz - size],
+                [cx + size, cz + size],
+                [cx - size, cz + size]
+            ];
+        }
+        if (!points?.length) return;
+        const { lineColor, fillColor, closePath, name, category, temporary } = p;
 
         ctx.beginPath();
         points.forEach(([x, z], i) => i === 0 ? ctx.moveTo(x, z) : ctx.lineTo(x, z));
         if (closePath) ctx.closePath();
 
-        ctx.fillStyle = (category === 1 ? fillColor : 'transparent');
+        ctx.fillStyle = (['terrain', 'station', 'intersection'].includes(category) ? fillColor : 'transparent');
         ctx.fill();
         ctx.strokeStyle = lineColor;
-        ctx.lineWidth = (category === 1 ? 2.5 / zoom : 6 / zoom);
+        ctx.lineWidth = (['terrain', 'station', 'intersection'].includes(category) ? 2.5 / zoom : 6 / zoom);
         ctx.stroke();
 
-        if (name && (category === 1 || zoom > 3)) {
+        if (name && (['terrain', 'station', 'intersection'].includes(category) || zoom > 3)) {
             ctx.font = `${14 / zoom}px Arial`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            if (category === 1) {
+            if (['terrain', 'station', 'intersection'].includes(category)) {
                 const [cx, cz] = calculateCentroid(points);
                 ctx.strokeStyle = 'black';
                 ctx.lineWidth = 1.5 / zoom;
@@ -298,7 +342,6 @@ function drawPolygons() {
     });
     ctx.restore(); // NAPRAWIONE!
 }
-//linia 180
 
 //rysowanie i edytowanie – tymczasowy poligon
 function drawTempPolygon() {
@@ -311,21 +354,38 @@ function drawTempPolygon() {
     ctx.scale(ppb, ppb);
     ctx.translate(-viewX, -viewY);
 
+    let points = tempPoints;
+    if (editorConfig.category === 'intersection' && tempPoints.length === 1) {
+        const [cx, cz] = tempPoints[0];
+        const size = 1.5;
+        points = [
+            [cx - size, cz - size],
+            [cx + size, cz - size],
+            [cx + size, cz + size],
+            [cx - size, cz + size]
+        ];
+    }
     ctx.beginPath();
-    tempPoints.forEach(([x, z], i) => i === 0 ? ctx.moveTo(x, z) : ctx.lineTo(x, z));
-    if (editorConfig.closePath && tempPoints.length > 2) ctx.closePath();
-    ctx.fillStyle = (editorConfig.category === 1 ? editorConfig.fillColor : 'transparent');
+    points.forEach(([x, z], i) => i === 0 ? ctx.moveTo(x, z) : ctx.lineTo(x, z));
+    if (editorConfig.closePath && points.length > 2) ctx.closePath();
+    ctx.fillStyle = (['terrain', 'station', 'intersection'].includes(editorConfig.category) ? editorConfig.fillColor : 'transparent');
     ctx.fill();
     ctx.strokeStyle = editorConfig.lineColor;
-    ctx.lineWidth = (editorConfig.category === 1 ? 3/zoom : 6/zoom);
+    ctx.lineWidth = (['terrain', 'station', 'intersection'].includes(editorConfig.category) ? 3/zoom : 6/zoom);
     ctx.stroke();
 
-    tempPoints.forEach(([x, z], i) => {
+    const drawPoints = editorConfig.category === 'intersection' ? (tempPoints.length ? [tempPoints[0]] : []) : tempPoints;
+    drawPoints.forEach(([x, z], i) => {
         const isFirst = i === 0;
-        const isLast = i === tempPoints.length - 1;
+        const isLast = i === drawPoints.length - 1;
         ctx.beginPath();
         ctx.arc(x, z, 6 / zoom, 0, Math.PI*2);
-        ctx.fillStyle = (isFirst || (isLast && blink)) ? '#00ffff' : '#ff0000';
+        let fill = (isFirst || (isLast && blink)) ? '#00ffff' : '#ff0000';
+        if (editorConfig.category === 'station') {
+            if (i === inPointIndex) fill = '#00ff00';
+            if (i === outPointIndex) fill = '#ff00ff';
+        }
+        ctx.fillStyle = fill;
         ctx.fill();
         ctx.strokeStyle = '#000';
         ctx.lineWidth = 2 / zoom;
@@ -343,11 +403,11 @@ function drawTempPolygon() {
     }
     ctx.restore();
 }
-//linia 220
 
 //miganie punktu
 setInterval(() => { 
     blink = !blink; 
+    connectionBlinkColor = blink ? '#ffff00' : '#0000ff';
     if (isDrawing) draw(); 
 }, 500);
 
@@ -363,11 +423,50 @@ function pointDistanceToSegment(px, pz, x1, z1, x2, z2) {
     return { dist: Math.hypot(px - xx, pz - zz), x: xx, z: zz, param };
 }
 
+function getConnectionPoints() {
+    let points = [];
+    polygons.forEach(p => {
+        if (p.category === 'station') {
+            if (p.in) points.push({ pos: p.in[0], name: `${p.name}[in]`, category: p.category });
+            if (p.out) points.push({ pos: p.out[0], name: `${p.name}[out]`, category: p.category });
+        } else if (p.category === 'intersection' && p.location) {
+            points.push({ pos: p.location[0], name: p.name, category: p.category });
+        }
+    });
+    return points;
+}
+
+function findNearestConnection(wx, wz) {
+    const conn = getConnectionPoints();
+    let nearest = null;
+    let minDist = SNAP_THRESHOLD;
+    conn.forEach(c => {
+        const dist = Math.hypot(c.pos[0] - wx, c.pos[1] - wz);
+        if (dist < minDist) {
+            minDist = dist;
+            nearest = c;
+        }
+    });
+    return nearest;
+}
+
 function detectHover(x, y) {
-    hoverPoint = -1; hoverEdge = -1; edgePoint = null;
+    hoverPoint = -1; hoverEdge = -1; edgePoint = null; hoverConnection = -1;
     const [wx, wz] = screenToWorld(x, y);
-    for (let i = 0; i < tempPoints.length; i++) {
-        const [px, pz] = tempPoints[i];
+    if (isDrawing && editorConfig.category === 'rail' && selectingFrom) {
+        const conn = getConnectionPoints();
+        for (let i = 0; i < conn.length; i++) {
+            const [px, pz] = conn[i].pos;
+            const [sx, sz] = worldToScreen(px, pz);
+            if (Math.hypot(sx - x, sz - y) < 30) {
+                hoverConnection = i;
+                return;
+            }
+        }
+    }
+    const drawPoints = editorConfig.category === 'intersection' ? (tempPoints.length ? [tempPoints[0]] : []) : tempPoints;
+    for (let i = 0; i < drawPoints.length; i++) {
+        const [px, pz] = drawPoints[i];
         const [sx, sz] = worldToScreen(px, pz);
         if (Math.hypot(sx - x, sz - y) < 30) {
             hoverPoint = i;
@@ -388,7 +487,6 @@ function detectHover(x, y) {
         }
     }
 }
-//linia 240
 
 //obsługa myszy i dotyku
 canvas.addEventListener('pointerdown', e => {
@@ -423,8 +521,35 @@ canvas.addEventListener('pointerdown', e => {
 canvas.addEventListener('pointermove', e => {
     lastX = e.clientX; lastY = e.clientY;
     if (isDraggingPoint && draggedPointIndex !== -1) {
-        const [wx, wz] = screenToWorld(e.clientX, e.clientY);
-        tempPoints[draggedPointIndex] = [Math.round(wx), Math.round(wz)];
+        let [wx, wz] = screenToWorld(e.clientX, e.clientY);
+        if (editorConfig.category === 'rail' && (draggedPointIndex === 0 || draggedPointIndex === tempPoints.length - 1)) {
+            const nearest = findNearestConnection(wx, wz);
+            if (nearest) {
+                wx = nearest.pos[0];
+                wz = nearest.pos[1];
+                if (draggedPointIndex === 0) {
+                    editorConfig.from = nearest.name;
+                    isStartSnapped = true;
+                } else {
+                    editorConfig.to = nearest.name;
+                    isEndSnapped = true;
+                }
+            } else {
+                if (draggedPointIndex === 0) {
+                    editorConfig.from = null;
+                    isStartSnapped = false;
+                } else {
+                    editorConfig.to = null;
+                    isEndSnapped = false;
+                }
+            }
+        }
+        if (editorConfig.category === 'intersection') {
+            tempPoints[draggedPointIndex] = [Math.round(wx), Math.round(wz)];
+        } else {
+            tempPoints[draggedPointIndex] = [Math.round(wx), Math.round(wz)];
+        }
+        updateRailInfo();
         draw();
         return;
     }
@@ -462,15 +587,64 @@ canvas.addEventListener('pointerup', e => {
 
     // Rysowanie – bez zmian
     if (elapsed <= 200 && dist < 20 && isDrawing) {
-        const [wx, wz] = screenToWorld(e.clientX, e.clientY);
+        let [wx, wz] = screenToWorld(e.clientX, e.clientY);
         detectHover(e.clientX, e.clientY);
+
+        if (editorConfig.category === 'station' && (settingIn || settingOut) && hoverPoint !== -1) {
+            if (settingIn) {
+                inPointIndex = hoverPoint;
+                railAddInBtn.textContent = `[${tempPoints[inPointIndex][0]}, ${tempPoints[inPointIndex][1]}] IN`;
+                railAddInBtn.style.background = '#00ff00';
+            }
+            if (settingOut) {
+                outPointIndex = hoverPoint;
+                railAddOutBtn.textContent = `[${tempPoints[outPointIndex][0]}, ${tempPoints[outPointIndex][1]}] OUT`;
+                railAddOutBtn.style.background = '#ff00ff';
+            }
+            settingIn = false;
+            settingOut = false;
+            canvas.style.cursor = 'crosshair';
+            draw();
+            return;
+        }
+
+        if (editorConfig.category === 'rail' && selectingFrom && hoverConnection !== -1) {
+            const conn = getConnectionPoints();
+            editorConfig.from = conn[hoverConnection].name;
+            tempPoints = [[...conn[hoverConnection].pos]];
+            selectingFrom = false;
+            isStartSnapped = true;
+            updateRailInfo();
+            draw();
+            return;
+        }
+
+        if (editorConfig.category === 'intersection' && tempPoints.length > 0) return; // Tylko jeden punkt
 
         if (clickWasOnPoint && hoverPoint !== -1) {
             tempPoints.splice(hoverPoint, 1);
+            updateRailInfo();
         } else if (clickWasOnEdge && hoverEdge !== -1 && edgePoint) {
             tempPoints.splice(hoverEdge + 1, 0, [Math.round(edgePoint.x), Math.round(edgePoint.z)]);
+            updateRailInfo();
         } else {
-            tempPoints.push([Math.round(wx), Math.round(wz)]);
+            if (editorConfig.category === 'intersection') {
+                if (tempPoints.length === 0) tempPoints.push([Math.round(wx), Math.round(wz)]);
+            } else if (editorConfig.category === 'rail' && !selectingFrom) {
+                if (isEndSnapped) return; // nie dodawaj jeśli koniec snapped
+                const nearest = findNearestConnection(wx, wz);
+                if (nearest) {
+                    wx = nearest.pos[0];
+                    wz = nearest.pos[1];
+                    editorConfig.to = nearest.name;
+                    isEndSnapped = true;
+                }
+                tempPoints.push([wx, wz]);
+                updateRailInfo();
+            } else {
+                tempPoints.push([Math.round(wx), Math.round(wz)]);
+                updateRailInfo();
+            }
         }
         draw();
     }
@@ -478,7 +652,6 @@ canvas.addEventListener('pointerup', e => {
     clickWasOnPoint = false;
     clickWasOnEdge = false;
 });
-//linia 260
 
 //zoom kołem i dotykiem
 canvas.addEventListener('wheel', e => {
@@ -528,7 +701,6 @@ canvas.addEventListener('touchmove', e => {
         draw();
     }
 }, { passive: false });
-//linia 280
 
 //pomocnicze
 function clampView() {
@@ -536,24 +708,82 @@ function clampView() {
     viewY = Math.max(-WORLD_SIZE, Math.min(WORLD_SIZE, viewY));
 }
 
+function generateNextName(used) {
+    for (let i = 1; i <= 9; i++) if (!used.has('' + i)) return '' + i;
+    for (let l = 0; l < 26; l++) for (let n = 1; n <= 9; n++) {
+        let nm = String.fromCharCode(65 + l) + n;
+        if (!used.has(nm)) return nm;
+    }
+    for (let l1 = 0; l1 < 26; l1++) for (let l2 = 0; l2 < 26; l2++) {
+        let nm = String.fromCharCode(65 + l1) + String.fromCharCode(65 + l2);
+        if (!used.has(nm)) return nm;
+    }
+    return 'NO_NAME';
+}
+
+function updateRailInfo() {
+    if (editorConfig.category !== 'rail' || tempPoints.length === 0) return;
+    const conn = getConnectionPoints();
+    const start = tempPoints[0];
+    const end = tempPoints[tempPoints.length - 1];
+    let fromLabel = editorConfig.from || `[${start[0]}, ${start[1]}]`;
+    let toLabel = editorConfig.to || `[${end[0]}, ${end[1]}]`;
+    railInfo.textContent = `${fromLabel} <=> ${toLabel}`;
+}
+
 //zapis
 function savePolygon() {
-    if (tempPoints.length < 3) {
-        alert("Za mało punktów! Minimum 3.");
+    let minPoints = editorConfig.closePath ? 3 : 2;
+    if (editorConfig.category === 'intersection') minPoints = 1;
+    if (tempPoints.length < minPoints) {
+        alert("Za mało punktów! Minimum " + minPoints + ".");
         return;
     }
+    const usedNames = new Set(polygons.map(p => p.name).filter(n => n));
+    if (editorConfig.name && usedNames.has(editorConfig.name)) {
+        alert('Nazwa istnieje!');
+        return;
+    }
+    if (editorConfig.category === 'station' && !editorConfig.name) {
+        alert('Nazwa obowiązkowa!');
+        return;
+    }
+    if (editorConfig.category === 'intersection' && !editorConfig.name) {
+        editorConfig.name = generateNextName(usedNames);
+    }
     const poly = { ...editorConfig, points: tempPoints };
+    if (editorConfig.category === 'intersection') {
+        poly.location = [tempPoints[0]];
+        delete poly.points;
+    }
+    if (editorConfig.category === 'station') {
+        if (inPointIndex !== -1) poly.in = [tempPoints[inPointIndex]];
+        if (outPointIndex !== -1) poly.out = [tempPoints[outPointIndex]];
+    }
+    if (editorConfig.category === 'rail') {
+        poly.from = editorConfig.from;
+        poly.to = editorConfig.to;
+        poly.fillColor = editorConfig.lineColor + '33';
+    }
     if (editorConfig.name) poly.name = editorConfig.name;
     if (editorConfig.opis) poly.opis = editorConfig.opis;
     let fullCode = '{\n';
-    fullCode += ' points: ' + JSON.stringify(tempPoints) + ',\n';
+    if (poly.location) {
+        fullCode += ' location: ' + JSON.stringify(poly.location) + ',\n';
+    } else {
+        fullCode += ' points: ' + JSON.stringify(tempPoints) + ',\n';
+    }
     fullCode += ' lineColor: "' + poly.lineColor + '",\n';
     fullCode += ' fillColor: "' + poly.fillColor + '",\n';
     fullCode += ' closePath: ' + poly.closePath + ',\n';
     if (poly.name) fullCode += ' name: "' + poly.name + '",\n';
     if (poly.opis) fullCode += ' opis: "' + poly.opis.replace(/"/g, '\\"') + '",\n';
-    fullCode += ' category: ' + poly.category + ',\n';
-    if (poly.temporary) fullCode += ' temporary: ' + poly.temporary + '\n';
+    fullCode += ' category: "' + poly.category + '",\n';
+    if (poly.temporary) fullCode += ' temporary: ' + poly.temporary + ',\n';
+    if (poly.in) fullCode += ' in: ' + JSON.stringify(poly.in) + ',\n';
+    if (poly.out) fullCode += ' out: ' + JSON.stringify(poly.out) + ',\n';
+    if (poly.from) fullCode += ' from: "' + poly.from + '",\n';
+    if (poly.to) fullCode += ' to: "' + poly.to + '",\n';
     fullCode += '},';
     codeText.value = fullCode;
     codeModal.style.display = 'block';
@@ -566,53 +796,133 @@ function finalizeSave(add = true) {
     }
     isDrawing = false;
     tempPoints = [];
+    selectingFrom = false;
+    settingIn = false;
+    settingOut = false;
+    inPointIndex = -1;
+    outPointIndex = -1;
+    isStartSnapped = false;
+    isEndSnapped = false;
+    railStationButtons.style.display = 'none';
+    railInfo.style.display = 'none';
     canvas.style.cursor = 'grab';
     editorPanel.style.display = 'none';
+    railEditorPanel.style.display = 'none';
     openBtn.style.display = 'block';
+    openRailBtn.style.display = 'block';
+    editModeBtn.style.display = 'none';
     info.textContent = 'ZAPISANO!';
     draw();
     delete window.tempPoly;
 }
-//linia 300
 
 //UI
 openBtn.addEventListener('click', () => {
     editorPanel.style.display = 'block';
     openBtn.style.display = 'none';
+    openRailBtn.style.display = 'none';
+    catSelection.style.display = 'block';
     startDrawingBtn.textContent = isDrawing ? 'ZAKOŃCZ RYSOWANIE' : 'ROZPOCZNIJ RYSOWANIE';
     closePathToggle.textContent = editorConfig.closePath ? 'ON' : 'OFF';
     closePathToggle.style.background = editorConfig.closePath ? '#0f0' : '#f00';
     temporaryToggle.textContent = editorConfig.temporary ? 'ON' : 'OFF';
     temporaryToggle.style.background = editorConfig.temporary ? '#0f0' : '#f00';
-    document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('selected'));
-    document.querySelector(`.cat-btn[data-cat="${editorConfig.category}"]`).classList.add('selected');
+    document.querySelectorAll('#editor-panel .cat-btn').forEach(b => b.classList.remove('selected'));
+    document.querySelector(`#editor-panel .cat-btn[data-cat="${editorConfig.category}"]`).classList.add('selected');
+    closePathToggle.style.display = 'block';
+    document.getElementById('lineColor').disabled = false;
+    document.getElementById('lineColor').value = editorConfig.lineColor;
+    document.getElementById('polyName').value = editorConfig.name;
+    document.getElementById('polyDesc').value = editorConfig.opis;
+});
+
+openRailBtn.addEventListener('click', () => {
+    railPanel.style.display = 'block';
+    openRailBtn.style.display = 'none';
+    openBtn.style.display = 'none';
+});
+
+closeRail.addEventListener('click', () => {
+    railPanel.style.display = 'none';
+    openRailBtn.style.display = 'block';
+    openBtn.style.display = 'block';
 });
 
 closeBtn.addEventListener('click', () => {
     if (isDrawing) {
-        isDrawing = false;
-        tempPoints = [];
-        canvas.style.cursor = 'grab';
-        draw();
+        finalizeSave(false);
+    } else {
+        editorPanel.style.display = 'none';
+        openBtn.style.display = 'block';
+        openRailBtn.style.display = 'block';
     }
-    editorPanel.style.display = 'none';
-    openBtn.style.display = 'block';
 });
 
-document.querySelectorAll('.cat-btn').forEach(btn => {
+closeRailEditor.addEventListener('click', () => {
+    if (isDrawing) {
+        finalizeSave(false);
+    } else {
+        railEditorPanel.style.display = 'none';
+        openBtn.style.display = 'block';
+        openRailBtn.style.display = 'block';
+    }
+});
+
+document.querySelectorAll('#editor-panel .cat-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-        document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('selected'));
+        document.querySelectorAll('#editor-panel .cat-btn').forEach(b => b.classList.remove('selected'));
         btn.classList.add('selected');
-        editorConfig.category = parseInt(btn.dataset.cat);
-        if (editorConfig.category === 3) {
-            editorConfig.lineColor = '#ffffff99';
-            editorConfig.fillColor = '#ffffff33';
+        editorConfig.category = btn.dataset.cat;
+        if (editorConfig.category === 'road') {
+            editorConfig.lineColor = '#ffffff';
+            editorConfig.fillColor = 'transparent';
             document.getElementById('lineColor').value = '#ffffff';
-            document.getElementById('lineColor').disabled = true;
-        } else {
             document.getElementById('lineColor').disabled = false;
+            editorConfig.closePath = false;
+            closePathToggle.style.display = 'none';
+        } else {
+            editorConfig.lineColor = '#00ff00';
+            editorConfig.fillColor = '#00ff0033';
+            document.getElementById('lineColor').value = '#00ff00';
+            document.getElementById('lineColor').disabled = false;
+            closePathToggle.style.display = 'block';
         }
         if (isDrawing) draw();
+    });
+});
+
+document.querySelectorAll('#rail-mode-panel .cat-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('#rail-mode-panel .cat-btn').forEach(b => b.classList.remove('selected'));
+        btn.classList.add('selected');
+        editorConfig.category = btn.dataset.mode;
+        railPanel.style.display = 'none';
+        railEditorPanel.style.display = 'block';
+        railCategory.textContent = btn.textContent.toUpperCase();
+        railOpisSection.style.display = editorConfig.category !== 'rail' ? 'block' : 'none';
+        railStationButtons.style.display = editorConfig.category === 'station' ? 'block' : 'none';
+        if (editorConfig.category === 'station') {
+            editorConfig.lineColor = '#df6501';
+            editorConfig.fillColor = editorConfig.lineColor + '33';
+            editorConfig.closePath = true;
+        } else if (editorConfig.category === 'intersection') {
+            editorConfig.lineColor = '#102457';
+            editorConfig.fillColor = editorConfig.lineColor + '33';
+            editorConfig.closePath = true;
+        } else if (editorConfig.category === 'rail') {
+            editorConfig.lineColor = '#102457';
+            editorConfig.fillColor = editorConfig.lineColor + '33';
+            editorConfig.closePath = false;
+        }
+        railLineColor.value = editorConfig.lineColor;
+        railTemporaryToggle.textContent = editorConfig.temporary ? 'ON' : 'OFF';
+        railTemporaryToggle.style.background = editorConfig.temporary ? '#0f0' : '#f00';
+        railAddInBtn.textContent = 'DODAJ IN';
+        railAddInBtn.style.background = '#00ff00';
+        railAddOutBtn.textContent = 'DODAJ OUT';
+        railAddOutBtn.style.background = '#ff00ff';
+        railPolyName.value = editorConfig.name;
+        railPolyDesc.value = editorConfig.opis;
     });
 });
 
@@ -630,10 +940,24 @@ temporaryToggle.addEventListener('click', () => {
     if (isDrawing) draw();
 });
 
+railTemporaryToggle.addEventListener('click', () => {
+    editorConfig.temporary = !editorConfig.temporary;
+    railTemporaryToggle.textContent = editorConfig.temporary ? 'ON' : 'OFF';
+    railTemporaryToggle.style.background = editorConfig.temporary ? '#0f0' : '#f00';
+    if (isDrawing) draw();
+});
+
 document.getElementById('lineColor').addEventListener('input', e => {
     const hex = e.target.value;
     editorConfig.lineColor = hex;
-    editorConfig.fillColor = hex + '33';
+    editorConfig.fillColor = (['terrain', 'station', 'intersection'].includes(editorConfig.category) ? hex + '33' : 'transparent');
+    if (isDrawing) draw();
+});
+
+railLineColor.addEventListener('input', e => {
+    const hex = e.target.value;
+    editorConfig.lineColor = hex;
+    editorConfig.fillColor = (['terrain', 'station', 'intersection'].includes(editorConfig.category) ? hex + '33' : 'transparent');
     if (isDrawing) draw();
 });
 
@@ -642,32 +966,85 @@ document.getElementById('polyName').addEventListener('input', e => {
     if (isDrawing) draw();
 });
 
+railPolyName.addEventListener('input', e => {
+    editorConfig.name = e.target.value;
+    if (isDrawing) draw();
+});
+
 document.getElementById('polyDesc').addEventListener('input', e => {
+    editorConfig.opis = e.target.value;
+});
+
+railPolyDesc.addEventListener('input', e => {
     editorConfig.opis = e.target.value;
 });
 
 startDrawingBtn.addEventListener('click', () => {
     editorPanel.style.display = 'none';
-    openBtn.style.display = 'block';
     if (!isDrawing) {
         isDrawing = true;
         tempPoints = [];
+        inPointIndex = -1;
+        outPointIndex = -1;
         canvas.style.cursor = 'crosshair';
         info.textContent = 'Klik=dodaj | klik punkt=usuń | przytrzymaj=przesuń';
+        openBtn.style.display = 'none';
+        openRailBtn.style.display = 'none';
+        editModeBtn.style.display = 'block';
     } else {
         savePolygon();
     }
     draw();
 });
 
+railStartDrawing.addEventListener('click', () => {
+    railEditorPanel.style.display = 'none';
+    if (!isDrawing) {
+        isDrawing = true;
+        tempPoints = [];
+        inPointIndex = -1;
+        outPointIndex = -1;
+        if (editorConfig.category === 'rail') {
+            selectingFrom = true;
+            railInfo.textContent = '[?] <=> [?]';
+            railInfo.style.display = 'block';
+        }
+        canvas.style.cursor = 'crosshair';
+        info.textContent = 'Klik=dodaj | klik punkt=usuń | przytrzymaj=przesuń';
+        openBtn.style.display = 'none';
+        openRailBtn.style.display = 'none';
+        editModeBtn.style.display = 'block';
+    } else {
+        savePolygon();
+    }
+    draw();
+});
+
+editModeBtn.addEventListener('click', () => {
+    if (['terrain', 'road'].includes(editorConfig.category)) {
+        editorPanel.style.display = 'block';
+        startDrawingBtn.textContent = 'ZAKOŃCZ RYSOWANIE';
+    } else {
+        railEditorPanel.style.display = 'block';
+        railStartDrawing.textContent = 'ZAKOŃCZ RYSOWANIE';
+    }
+});
+
+railAddInBtn.addEventListener('click', () => {
+    settingIn = true;
+    settingOut = false;
+    canvas.style.cursor = 'pointer';
+});
+
+railAddOutBtn.addEventListener('click', () => {
+    settingIn = false;
+    settingOut = true;
+    canvas.style.cursor = 'pointer';
+});
+
 window.addEventListener('keydown', e => {
     if (e.key === 'Escape' && isDrawing) {
-        isDrawing = false;
-        tempPoints = [];
-        canvas.style.cursor = 'grab';
-        editorPanel.style.display = 'none';
-        openBtn.style.display = 'block';
-        draw();
+        finalizeSave(false);
     }
 });
 
@@ -691,7 +1068,7 @@ returnBtn.addEventListener('click', () => {
 document.querySelectorAll('#category-toggle .toggle-btn').forEach(btn => {
     btn.addEventListener('click', () => {
         if (btn.dataset.cat) {
-            const cat = parseInt(btn.dataset.cat);
+            const cat = btn.dataset.cat;
             window.visibleCategories[cat] = !window.visibleCategories[cat];
         } else if (btn.dataset.type === 'projects') {
             window.visibleTemporary = !window.visibleTemporary;
@@ -711,6 +1088,24 @@ function draw() {
     drawTiles();
     drawPolygons();
     drawTempPolygon();
+    if (isDrawing && editorConfig.category === 'rail') {
+        ctx.save();
+        ctx.scale(pixelRatio, pixelRatio);
+        const { scale: ppb } = getPixelScale();
+        const cx = innerWidth / 2, cy = innerHeight / 2;
+        ctx.translate(cx, cy);
+        ctx.scale(ppb, ppb);
+        ctx.translate(-viewX, -viewY);
+        const conn = getConnectionPoints();
+        conn.forEach(c => {
+            const [x, z] = c.pos;
+            ctx.beginPath();
+            ctx.arc(x, z, 10 / zoom, 0, Math.PI * 2);
+            ctx.fillStyle = connectionBlinkColor;
+            ctx.fill();
+        });
+        ctx.restore();
+    }
     updateInfo();
 }
 

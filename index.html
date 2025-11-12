@@ -111,9 +111,70 @@
         z-index: 999;
         transition: all 0.3s;
     ">
-        DODAWANIE
+        +TEREN
     </button>
-    <!-- EDYTOR (UKRYTY) -->
+    <!-- NOWY PRZYCISK KOLEI -->
+    <button id="open-rail-btn" style="
+        position: absolute;
+        top: 70px; left: 15px;
+        padding: 12px 20px;
+        background: #000;
+        color: #0f0;
+        border: 2px solid #0f0;
+        border-radius: 12px;
+        font-family: 'Courier New', monospace;
+        font-weight: bold;
+        font-size: 16px;
+        cursor: pointer;
+        box-shadow: 0 0 15px #0f0, inset 0 0 10px rgba(0,255,0,0.3);
+        z-index: 999;
+        transition: all 0.3s;
+    ">
+        +KOLEJE
+    </button>
+    <!-- PRZYCISK EDYCJI W TRYBIE RYSOWANIA -->
+    <button id="edit-mode-btn" style="
+        position: absolute;
+        top: 15px; left: 15px;
+        padding: 12px 20px;
+        background: #000;
+        color: #0f0;
+        border: 2px solid #0f0;
+        border-radius: 12px;
+        font-family: 'Courier New', monospace;
+        font-weight: bold;
+        font-size: 16px;
+        cursor: pointer;
+        box-shadow: 0 0 15px #0f0, inset 0 0 10px rgba(0,255,0,0.3);
+        z-index: 999;
+        transition: all 0.3s;
+        display: none;
+    ">
+        ✏
+    </button>
+    <!-- PANEL TRYBÓW KOLEI -->
+    <div id="rail-mode-panel" style="
+        position: absolute; top: 125px; left: 15px;
+        width: 280px; background: rgba(0,0,0,0.95);
+        color: #0f0; padding: 15px; border: 2px solid #0f0;
+        border-radius: 15px; font-family: 'Courier New';
+        z-index: 998; display: none; box-shadow: 0 0 25px #0f0;
+    ">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <h3 style="margin:0; text-shadow:0 0 10px #0f0;">TRYB KOLEI</h3>
+            <button id="close-rail" style="
+                background:none; border:none; color:#0f0; font-size:24px;
+                cursor:pointer; padding:0; width:30px; height:30px;
+                display:flex; align-items:center; justify-content:center;
+            ">X</button>
+        </div>
+        <div style="display:flex; gap:8px; margin-top:8px;">
+            <button class="cat-btn" data-mode="station">Stacja</button>
+            <button class="cat-btn" data-mode="intersection">Łącznik</button>
+            <button class="cat-btn" data-mode="rail">Tory</button>
+        </div>
+    </div>
+    <!-- EDYTOR TERENU (UKRYTY) -->
     <div id="editor-panel" style="
         position: absolute; top: 70px; left: 15px;
         width: 280px; background: rgba(0,0,0,0.95);
@@ -129,11 +190,11 @@
                 display:flex; align-items:center; justify-content:center;
             ">X</button>
         </div>
-        <div style="margin:10px 0;">
+        <div id="cat-selection" style="margin:10px 0;">
             <label>Kategoria:</label><br>
             <div style="display:flex; gap:8px; margin-top:8px;">
-                <button class="cat-btn" data-cat="1">Teren</button>
-                <button class="cat-btn" data-cat="3">Droga</button>
+                <button class="cat-btn" data-cat="terrain">Teren</button>
+                <button class="cat-btn" data-cat="road">Droga</button>
             </div>
         </div>
         <div style="margin:10px 0;">
@@ -177,6 +238,69 @@
             ">ROZPOCZNIJ RYSOWANIE</button>
         </div>
     </div>
+    <!-- NOWY EDYTOR KOLEI (UKRYTY) -->
+    <div id="rail-editor-panel" style="
+        position: absolute; top: 70px; left: 15px;
+        width: 280px; background: rgba(0,0,0,0.95);
+        color: #0f0; padding: 15px; border: 2px solid #0f0;
+        border-radius: 15px; font-family: 'Courier New';
+        z-index: 998; display: none; box-shadow: 0 0 25px #0f0;
+    ">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <h3 style="margin:0; text-shadow:0 0 10px #0f0;">EDYTOR KOLEI</h3>
+            <button id="close-rail-editor" style="
+                background:none; border:none; color:#0f0; font-size:24px;
+                cursor:pointer; padding:0; width:30px; height:30px;
+                display:flex; align-items:center; justify-content:center;
+            ">X</button>
+        </div>
+        <div style="margin:10px 0;">
+            <label>Kategoria:</label><br>
+            <span id="rail-category" style="color:#fff;">-</span>
+        </div>
+        <div style="margin:10px 0;">
+            <label>Tymczasowe:</label><br>
+            <button id="rail-temporaryToggle" style="
+                padding:8px 16px; background:#f00; color:#000;
+                border:none; border-radius:10px; font-weight:bold;
+                cursor:pointer; font-size:14px; box-shadow:0 0 10px #f00;
+                margin-top:5px;
+            ">OFF</button>
+        </div>
+        <div style="margin:10px 0;">
+            <label>Kolor obramowania:</label>
+            <input type="color" id="rail-lineColor" value="#102457" style="width:100%; height:40px; margin-top:5px;">
+        </div>
+        <div style="margin:10px 0;">
+            <label>Nazwa:</label>
+            <input type="text" id="rail-polyName" placeholder="np. Stacja Zetie" style="
+                width:100%; background:#000; color:#0f0; border:1px solid #0f0;
+                padding:8px; margin-top:5px; border-radius:6px;
+            ">
+        </div>
+        <div id="rail-opis-section" style="margin:10px 0; display:none;">
+            <label>Opis (opcjonalny):</label>
+            <textarea id="rail-polyDesc" placeholder="np. Stacja do bazy Zetiego" style="width:100%; height:60px; background:#000; color:#0f0; border:1px solid #0f0; padding:8px; margin-top:5px; border-radius:6px; resize:none;"></textarea>
+        </div>
+        <div id="rail-station-buttons" style="display:none; margin:10px 0;">
+            <button id="rail-add-in-btn" class="toggle-btn" style="background:#00ff00;">DODAJ IN</button>
+            <button id="rail-add-out-btn" class="toggle-btn" style="background:#ff00ff; margin-top:10px;">DODAJ OUT</button>
+        </div>
+        <div style="text-align:center; margin-top:20px;">
+            <button id="rail-startDrawing" style="
+                padding:12px 30px; background:#0f0; color:#000;
+                border:none; border-radius:10px; font-weight:bold;
+                cursor:pointer; font-size:16px; box-shadow:0 0 15px #0f0;
+            ">ROZPOCZNIJ RYSOWANIE</button>
+        </div>
+    </div>
+    <!-- INFO O TORACH NAD ZOOMEM -->
+    <div id="rail-info" style="
+        position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%);
+        background: rgba(0,0,0,0.7); color: #0f0; padding: 8px 16px;
+        border-radius: 8px; font: bold 14px 'Courier New'; z-index: 20;
+        display: none; box-shadow: 0 0 10px #0f0;
+    ">[Z KĄD] <=> [DO KĄD]</div>
     <!-- MODAL KODU -->
     <div id="code-modal" style="
         position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
@@ -217,8 +341,11 @@
         <canvas id="canvas"></canvas>
         <!-- NOWE: Przełączniki kategorii -->
         <div id="category-toggle">
-            <button class="toggle-btn" data-cat="1">Teren</button>
-            <button class="toggle-btn" data-cat="3">Drogi</button>
+            <button class="toggle-btn" data-cat="terrain">Teren</button>
+            <button class="toggle-btn" data-cat="road">Drogi</button>
+            <button class="toggle-btn" data-cat="station">Stacje</button>
+            <button class="toggle-btn" data-cat="intersection">Skrzyżowania</button>
+            <button class="toggle-btn" data-cat="rail">Tory</button>
             <button class="toggle-btn off" data-type="projects">Projekty</button>
         </div>
         <div id="zoom-container">
