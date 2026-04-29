@@ -1,82 +1,190 @@
 <!DOCTYPE html>
 <html lang="pl">
+
 <head>
-    <!-- v180 -->
+    <!-- v210 - Craftly Map Premium -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="mobile-web-app-capable" content="yes">
     <title>Mapa Craftly</title>
     <link rel="icon" href="icon/favicon.ico?v=1" type="image/x-icon">
-    <link rel="shortcut icon" href="icon/favicon.ico?v=1" type="image/x-icon">
-    <link rel="icon" type="image/png" sizes="32x32" href="icon/favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="icon/favicon-16x16.png">
-    <link rel="apple-touch-icon" sizes="180x180" href="icon/apple-touch-icon.png">
-    <link rel="icon" type="image/png" sizes="192x192" href="icon/android-chrome-192x192.png">
-    <link rel="icon" type="image/png" sizes="512x512" href="icon/android-chrome-512x512.png">
     <style>
-        *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
-        html, body { width:100%; height:100%; overflow:hidden; background:#000; touch-action:none; user-select:none; }
-        #map { width:100%; height:100%; position:relative; }
+        *,
+        *::before,
+        *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #000;
+            touch-action: none;
+            user-select: none;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+
         canvas {
-            position:absolute; top:0; left:0; width:100%; height:100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
             image-rendering: pixelated;
-            image-rendering: -moz-crisp-edges;
-            image-rendering: -webkit-crisp-edges;
-            image-rendering: crisp-edges;
             touch-action: none !important;
         }
+
         #info {
-            position:absolute; top:10px; left:50%; transform:translateX(-50%);
-            background:rgba(0,0,0,0.8); color:#0f0; padding:6px 14px;
-            border-radius:8px; font:bold 13px 'Courier New'; z-index:10;
-            pointer-events:none; border:1px solid #0f0; backdrop-filter:blur(4px);
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: #0f0;
+            padding: 6px 14px;
+            border-radius: 8px;
+            font: bold 13px 'Courier New';
+            z-index: 10;
+            pointer-events: none;
+            border: 1px solid #0f0;
+            backdrop-filter: blur(4px);
         }
+
         #zoom-container {
-            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
-            width: 90%; max-width: 500px; z-index: 20;
-            background: rgba(0,0,0,0.7); padding: 12px; border-radius: 12px;
-            border: 1px solid #0f0; box-shadow: 0 0 20px #0f0;
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 500px;
+            z-index: 20;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 12px;
+            border-radius: 12px;
+            border: 1px solid #0f0;
+            box-shadow: 0 0 20px #0f0;
         }
+
         #zoom-slider {
-            -webkit-appearance: none; width: 100%; height: 12px;
-            border-radius: 6px; background: #333; outline: none;
+            -webkit-appearance: none;
+            width: 100%;
+            height: 12px;
+            border-radius: 6px;
+            background: #333;
+            outline: none;
             border: 1px solid #0f0;
         }
+
         #zoom-slider::-webkit-slider-thumb {
-            -webkit-appearance: none; width: 28px; height: 28px;
-            background: #0f0; border-radius: 50%; cursor: grab;
+            -webkit-appearance: none;
+            width: 28px;
+            height: 28px;
+            background: #0f0;
+            border-radius: 50%;
+            cursor: grab;
             box-shadow: 0 0 15px #0f0;
         }
+
         #zoom-label {
-            text-align: center; color: #0f0; font: bold 16px 'Courier New';
-            margin-top: 8px; text-shadow: 0 0 10px #0f0;
+            text-align: center;
+            color: #0f0;
+            font: bold 16px 'Courier New';
+            margin-top: 8px;
+            text-shadow: 0 0 10px #0f0;
         }
-        #loading {
-            position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
-            background:#000; color:#0f0; padding:24px 48px; border-radius:16px;
-            font:bold 24px 'Courier New'; z-index:100; border:2px solid #0f0;
-            box-shadow:0 0 40px #0f0; transition:opacity .5s;
+
+        /* PREMIUM GUI */
+        .premium-panel {
+            background: rgba(16, 16, 16, 0.95);
+            border: 2px solid #0f0;
+            border-radius: 12px;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.2);
+            color: #0f0;
+            font-family: 'Courier New', monospace;
+            padding: 15px;
+            backdrop-filter: blur(8px);
         }
-        .cat-btn {
-            padding:8px 16px; background:#000; color:#0f0;
-            border:none; border-radius:10px; font-weight:bold;
-            cursor:pointer; font-size:14px; box-shadow:0 0 10px #0f0;
-            border:1px solid #0f0;
+
+        .mc-head {
+            width: 32px;
+            height: 32px;
+            image-rendering: pixelated;
+            vertical-align: middle;
+            border: 2px solid #0f0;
+            background: #000;
+            margin-left: -12px;
+            transition: transform 0.2s, margin 0.2s;
+            position: relative;
+            z-index: 1;
         }
-        .cat-btn.selected {
-            background:#0f0; color:#000;
+
+        .mc-head:first-child {
+            margin-left: 0;
         }
-        /* NOWE: Przyciski kategorii w prawym dolnym rogu */
+
+        .mc-head:hover {
+            transform: scale(1.3) translateY(-8px);
+            z-index: 100;
+            margin-right: 8px;
+            border-color: #fff;
+            box-shadow: 0 0 15px #0f0;
+        }
+
+        #history-clock {
+            position: absolute;
+            top: 15px;
+            right: 200px;
+            width: 45px;
+            height: 45px;
+            background: #000;
+            border: 2px solid #0f0;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 24px;
+            z-index: 999;
+            box-shadow: 0 0 15px #0f0;
+            transition: transform 0.3s;
+        }
+
+        #history-clock:hover {
+            transform: scale(1.1);
+        }
+
+        #area-info {
+            position: absolute;
+            bottom: 120px;
+            left: 15px;
+            background: rgba(0, 0, 0, 0.8);
+            color: #0f0;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #0f0;
+            font: bold 14px 'Courier New';
+            z-index: 20;
+            display: none;
+        }
+
         #category-toggle {
             position: absolute;
-            bottom: 80px; /* nad suwakiem */
+            bottom: 80px;
             right: 15px;
             display: flex;
             flex-direction: column;
             gap: 8px;
             z-index: 30;
         }
+
         .toggle-btn {
             padding: 8px 16px;
             background: #0f0;
@@ -89,272 +197,462 @@
             box-shadow: 0 0 10px #0f0;
             transition: all 0.3s;
         }
+
         .toggle-btn.off {
-            background: #f00;
-            box-shadow: 0 0 10px #f00;
+            background: #f00 !important;
+            box-shadow: 0 0 10px #f00 !important;
+            color: #fff;
+        }
+
+        .special-modal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 90vw;
+            height: 90vh;
+            background: #000;
+            border: 3px solid #0f0;
+            z-index: 3000;
+            display: none;
+            overflow: hidden;
+            box-shadow: 0 0 50px #000;
+        }
+
+        .cat-btn {
+            padding: 8px 16px;
+            background: #000;
+            color: #0f0;
+            border: 1px solid #0f0;
+            border-radius: 10px;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 2px;
+        }
+
+        .cat-btn.selected {
+            background: #0f0;
+            color: #000;
+        }
+
+        /* 3D PANORAMA CUBE */
+        #pano-cube-container {
+            width: 100%;
+            height: 100%;
+            perspective: 1000px;
+            overflow: hidden;
+            background: #000;
+        }
+
+        #pano-cube {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            transform-style: preserve-3d;
+            transition: transform 0.1s linear;
+        }
+
+        .pano-face {
+            position: absolute;
+            width: 1026px; /* Nieco więcej niż 1024 aby uniknąć szpar */
+            height: 1026px;
+            left: 50%;
+            top: 50%;
+            margin-left: -513px;
+            margin-top: -513px;
+            background-size: cover;
+            background-repeat: no-repeat;
+            backface-visibility: hidden;
+            image-rendering: pixelated;
+        }
+
+        /* Pozycjonowanie ścian sześcianu - Nowy, stabilniejszy układ */
+        .face-front  { transform: rotateY(0deg) translateZ(-512px); }
+        .face-right  { transform: rotateY(-90deg) translateZ(-512px); }
+        .face-back   { transform: rotateY(180deg) translateZ(-512px); }
+        .face-left   { transform: rotateY(90deg) translateZ(-512px); }
+        .face-top    { transform: rotateX(-90deg) translateZ(-512px); }
+        .face-bottom { transform: rotateX(90deg) translateZ(-512px); }
+
+        #login-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 5000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
     </style>
-    <!-- PRZYCISK POLIGONY -->
-    <button id="open-editor-btn" style="
-        position: absolute;
-        top: 15px; left: 15px;
-        padding: 12px 20px;
-        background: #000;
-        color: #0f0;
-        border: 2px solid #0f0;
-        border-radius: 12px;
-        font-family: 'Courier New', monospace;
-        font-weight: bold;
-        font-size: 16px;
-        cursor: pointer;
-        box-shadow: 0 0 15px #0f0, inset 0 0 10px rgba(0,255,0,0.3);
-        z-index: 999;
-        transition: all 0.3s;
-    ">
-        +TEREN
-    </button>
-    <!-- NOWY PRZYCISK KOLEI -->
-    <button id="open-rail-btn" style="
-        position: absolute;
-        top: 70px; left: 15px;
-        padding: 12px 20px;
-        background: #000;
-        color: #0f0;
-        border: 2px solid #0f0;
-        border-radius: 12px;
-        font-family: 'Courier New', monospace;
-        font-weight: bold;
-        font-size: 16px;
-        cursor: pointer;
-        box-shadow: 0 0 15px #0f0, inset 0 0 10px rgba(0,255,0,0.3);
-        z-index: 999;
-        transition: all 0.3s;
-    ">
-        +KOLEJE
-    </button>
-    <!-- PRZYCISK EDYCJI W TRYBIE RYSOWANIA -->
-    <button id="edit-mode-btn" style="
-        position: absolute;
-        top: 15px; left: 15px;
-        padding: 12px 20px;
-        background: #000;
-        color: #0f0;
-        border: 2px solid #0f0;
-        border-radius: 12px;
-        font-family: 'Courier New', monospace;
-        font-weight: bold;
-        font-size: 16px;
-        cursor: pointer;
-        box-shadow: 0 0 15px #0f0, inset 0 0 10px rgba(0,255,0,0.3);
-        z-index: 999;
-        transition: all 0.3s;
-        display: none;
-    ">
-        ✏
-    </button>
-    <!-- PANEL TRYBÓW KOLEI -->
-    <div id="rail-mode-panel" style="
-        position: absolute; top: 125px; left: 15px;
-        width: 280px; background: rgba(0,0,0,0.95);
-        color: #0f0; padding: 15px; border: 2px solid #0f0;
-        border-radius: 15px; font-family: 'Courier New';
-        z-index: 998; display: none; box-shadow: 0 0 25px #0f0;
-    ">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-            <h3 style="margin:0; text-shadow:0 0 10px #0f0;">TRYB KOLEI</h3>
-            <button id="close-rail" style="
-                background:none; border:none; color:#0f0; font-size:24px;
-                cursor:pointer; padding:0; width:30px; height:30px;
-                display:flex; align-items:center; justify-content:center;
-            ">X</button>
-        </div>
-        <div style="display:flex; gap:8px; margin-top:8px;">
-            <button class="cat-btn" data-mode="station">Stacja</button>
-            <button class="cat-btn" data-mode="intersection">Łącznik</button>
-            <button class="cat-btn" data-mode="rail">Tory</button>
-        </div>
-    </div>
-    <!-- EDYTOR TERENU (UKRYTY) -->
-    <div id="editor-panel" style="
-        position: absolute; top: 70px; left: 15px;
-        width: 280px; background: rgba(0,0,0,0.95);
-        color: #0f0; padding: 15px; border: 2px solid #0f0;
-        border-radius: 15px; font-family: 'Courier New';
-        z-index: 998; display: none; box-shadow: 0 0 25px #0f0;
-    ">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-            <h3 style="margin:0; text-shadow:0 0 10px #0f0;">EDYTOR</h3>
-            <button id="close-editor" style="
-                background:none; border:none; color:#0f0; font-size:24px;
-                cursor:pointer; padding:0; width:30px; height:30px;
-                display:flex; align-items:center; justify-content:center;
-            ">X</button>
-        </div>
-        <div id="cat-selection" style="margin:10px 0;">
-            <label>Kategoria:</label><br>
-            <div style="display:flex; gap:8px; margin-top:8px;">
-                <button class="cat-btn" data-cat="terrain">Teren</button>
-                <button class="cat-btn" data-cat="road">Droga</button>
-            </div>
-        </div>
-        <div style="margin:10px 0;">
-            <label>Zamknięcie:</label><br>
-            <button id="closePathToggle" style="
-                padding:8px 16px; background:#0f0; color:#000;
-                border:none; border-radius:10px; font-weight:bold;
-                cursor:pointer; font-size:14px; box-shadow:0 0 10px #0f0;
-                margin-top:5px;
-            ">ON</button>
-        </div>
-        <div style="margin:10px 0;">
-            <label>Tymczasowe:</label><br>
-            <button id="temporaryToggle" style="
-                padding:8px 16px; background:#f00; color:#000;
-                border:none; border-radius:10px; font-weight:bold;
-                cursor:pointer; font-size:14px; box-shadow:0 0 10px #f00;
-                margin-top:5px;
-            ">OFF</button>
-        </div>
-        <div style="margin:10px 0;">
-            <label>Kolor obramowania:</label>
-            <input type="color" id="lineColor" value="#00ff00" style="width:100%; height:40px; margin-top:5px;">
-        </div>
-        <div style="margin:10px 0;">
-            <label>Nazwa:</label>
-            <input type="text" id="polyName" placeholder="np. Wioska" style="
-                width:100%; background:#000; color:#0f0; border:1px solid #0f0;
-                padding:8px; margin-top:5px; border-radius:6px;
-            ">
-        </div>
-        <div style="margin:10px 0;">
-            <label>Opis (opcjonalny):</label>
-            <textarea id="polyDesc" placeholder="np. Farma XP 24/7" style="width:100%; height:60px; background:#000; color:#0f0; border:1px solid #0f0; padding:8px; margin-top:5px; border-radius:6px; resize:none;"></textarea>
-        </div>
-        <div style="text-align:center; margin-top:20px;">
-            <button id="startDrawing" style="
-                padding:12px 30px; background:#0f0; color:#000;
-                border:none; border-radius:10px; font-weight:bold;
-                cursor:pointer; font-size:16px; box-shadow:0 0 15px #0f0;
-            ">ROZPOCZNIJ RYSOWANIE</button>
-        </div>
-    </div>
-    <!-- NOWY EDYTOR KOLEI (UKRYTY) -->
-    <div id="rail-editor-panel" style="
-        position: absolute; top: 70px; left: 15px;
-        width: 280px; background: rgba(0,0,0,0.95);
-        color: #0f0; padding: 15px; border: 2px solid #0f0;
-        border-radius: 15px; font-family: 'Courier New';
-        z-index: 998; display: none; box-shadow: 0 0 25px #0f0;
-    ">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-            <h3 style="margin:0; text-shadow:0 0 10px #0f0;">EDYTOR KOLEI</h3>
-            <button id="close-rail-editor" style="
-                background:none; border:none; color:#0f0; font-size:24px;
-                cursor:pointer; padding:0; width:30px; height:30px;
-                display:flex; align-items:center; justify-content:center;
-            ">X</button>
-        </div>
-        <div style="margin:10px 0;">
-            <label>Kategoria:</label><br>
-            <span id="rail-category" style="color:#fff;">-</span>
-        </div>
-        <div style="margin:10px 0;">
-            <label>Tymczasowe:</label><br>
-            <button id="rail-temporaryToggle" style="
-                padding:8px 16px; background:#f00; color:#000;
-                border:none; border-radius:10px; font-weight:bold;
-                cursor:pointer; font-size:14px; box-shadow:0 0 10px #f00;
-                margin-top:5px;
-            ">OFF</button>
-        </div>
-        <div style="margin:10px 0;">
-            <label>Kolor obramowania:</label>
-            <input type="color" id="rail-lineColor" value="#102457" style="width:100%; height:40px; margin-top:5px;">
-        </div>
-        <div style="margin:10px 0;">
-            <label>Nazwa:</label>
-            <input type="text" id="rail-polyName" placeholder="np. Stacja Zetie" style="
-                width:100%; background:#000; color:#0f0; border:1px solid #0f0;
-                padding:8px; margin-top:5px; border-radius:6px;
-            ">
-        </div>
-        <div id="rail-opis-section" style="margin:10px 0; display:none;">
-            <label>Opis (opcjonalny):</label>
-            <textarea id="rail-polyDesc" placeholder="np. Stacja do bazy Zetiego" style="width:100%; height:60px; background:#000; color:#0f0; border:1px solid #0f0; padding:8px; margin-top:5px; border-radius:6px; resize:none;"></textarea>
-        </div>
-        <div id="rail-station-buttons" style="display:none; margin:10px 0;">
-            <button id="rail-add-in-btn" class="toggle-btn" style="background:#00ff00;">DODAJ IN</button>
-            <button id="rail-add-out-btn" class="toggle-btn" style="background:#ff00ff; margin-top:10px;">DODAJ OUT</button>
-        </div>
-        <div style="text-align:center; margin-top:20px;">
-            <button id="rail-startDrawing" style="
-                padding:12px 30px; background:#0f0; color:#000;
-                border:none; border-radius:10px; font-weight:bold;
-                cursor:pointer; font-size:16px; box-shadow:0 0 15px #0f0;
-            ">ROZPOCZNIJ RYSOWANIE</button>
-        </div>
-    </div>
-    <!-- INFO O TORACH NAD ZOOMEM -->
-    <div id="rail-info" style="
-        position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%);
-        background: rgba(0,0,0,0.7); color: #0f0; padding: 8px 16px;
-        border-radius: 8px; font: bold 14px 'Courier New'; z-index: 20;
-        display: none; box-shadow: 0 0 10px #0f0;
-    ">[Z KĄD] <=> [DO KĄD]</div>
-    <!-- MODAL KODU -->
-    <div id="code-modal" style="
-        position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
-        background:rgba(0,0,0,0.95); color:#0f0; padding:20px; border:2px solid #0f0;
-        border-radius:15px; z-index:1000; display:none; width:80%; max-width:600px;
-        box-shadow:0 0 30px #0f0; font-family:'Courier New';
-    ">
-        <h3 style="text-align:center; text-shadow:0 0 10px #0f0; margin-bottom:15px;">GOTOWY KOD</h3>
-        <textarea id="code-text" style="
-            width:100%; height:200px; background:#000; color:#0f0;
-            border:1px solid #0f0; padding:10px; font-size:14px;
-            resize:none;
-        "></textarea>
-        <p style="color:#0f0; text-align:center; margin:10px 0; font-weight:bold;">gotowy kod wyślij do XRogo</p>
-        <div style="display:flex; justify-content:space-around; margin-top:20px;">
-            <button id="copy-btn" style="
-                padding:10px 20px; background:#0f0; color:#000;
-                border:none; border-radius:10px; font-weight:bold;
-                cursor:pointer; font-size:14px; box-shadow:0 0 15px #0f0;
-            ">KOPIUJ</button>
-            <button id="close-modal" style="
-                padding:10px 20px; background:#0f0; color:#000;
-                border:none; border-radius:10px; font-weight:bold;
-                cursor:pointer; font-size:14px; box-shadow:0 0 15px #0f0;
-            ">ZAMKNIJ</button>
-            <button id="return-btn" style="
-                padding:10px 20px; background:#0f0; color:#000;
-                border:none; border-radius:10px; font-weight:bold;
-                cursor:pointer; font-size:14px; box-shadow:0 0 15px #0f0;
-            ">WRÓĆ</button>
-        </div>
-    </div>
 </head>
+
 <body>
+    <!-- LOGIN MODAL -->
+    <div id="login-modal">
+        <div class="premium-panel" style="width: 350px; text-align: center;">
+            <h2 style="margin-bottom: 20px;">KIM JESTEŚ?</h2>
+            <select id="user-select"
+                style="width: 100%; padding: 12px; background: #000; color: #0f0; border: 2px solid #0f0; border-radius: 8px; font-size: 16px;"></select>
+            <button id="login-btn"
+                style="width: 100%; padding: 12px; background: #0f0; color: #000; border: none; border-radius: 8px; font-weight: bold; margin-top: 20px; cursor: pointer; font-size: 18px;">WCHODZĘ</button>
+        </div>
+    </div>
+
     <div id="map">
         <div id="info">Zoom: 1.00x | (0, 0)</div>
-        <div id="loading">ŁADOWANIE v9...</div>
         <canvas id="canvas"></canvas>
-        <!-- NOWE: Przełączniki kategorii -->
+
+        <!-- PRZYCISKI GŁÓWNE -->
+        <button id="open-add-menu-btn"
+            style="position: absolute; top: 15px; left: 15px; padding: 12px 25px; background: #000; color: #0f0; border: 2px solid #0f0; border-radius: 12px; z-index: 999; cursor:pointer; font-weight: bold; box-shadow: 0 0 15px rgba(0,255,0,0.3);">DODAJ
+            +</button>
+        <button id="edit-mode-btn"
+            style="position: absolute; top: 15px; left: 15px; padding: 12px 20px; background: #000; color: #0f0; border: 2px solid #0f0; border-radius: 12px; z-index: 999; display: none; cursor:pointer;">✏</button>
+
+        <div id="history-clock" title="Historia">🕒</div>
+
+        <!-- TWOJE KONTO (WIDOK) -->
+        <div id="user-display" class="premium-panel"
+            style="position: absolute; top: 15px; right: 260px; padding: 5px 15px; display: flex; align-items: center; gap: 10px; cursor: pointer;">
+            <img id="user-head" class="mc-head" src="" style="margin:0;">
+            <span id="user-nick">Zaloguj</span>
+        </div>
+
+        <button id="push-changes-btn" class="toggle-btn"
+            style="position: absolute; top: 15px; right: 15px; height: 46px; background: #000; color: #0f0; border: 2px solid #0f0; box-shadow: 0 0 15px #0f0;">WPROWADŹ
+            ZMIANY</button>
+
+        <div id="area-info">
+            Pole: <span id="area-val">0</span> m²<br>
+            Objętość: <span id="vol-val">0</span> m³
+        </div>
+
+        <!-- PRZEŁĄCZNIKI KATEGORII -->
         <div id="category-toggle">
             <button class="toggle-btn" data-cat="terrain">Teren</button>
             <button class="toggle-btn" data-cat="road">Drogi</button>
             <button class="toggle-btn" data-cat="station">Stacje</button>
             <button class="toggle-btn" data-cat="intersection">Skrzyżowania</button>
             <button class="toggle-btn" data-cat="rail">Tory</button>
+            <button class="toggle-btn" data-cat="pin">Pineski</button>
             <button class="toggle-btn off" data-type="projects">Projekty</button>
         </div>
+
         <div id="zoom-container">
             <input type="range" id="zoom-slider" min="0.1" max="40" step="0.05" value="1">
             <div id="zoom-label">Zoom: 1.00x</div>
         </div>
+
+        <!-- PANEL INFORMACJI O POLIGONIE -->
+        <div id="poly-info-panel" class="premium-panel"
+            style="position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 600px; display: none; z-index: 100; padding: 10px 20px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <h2 id="info-poly-name" style="font-size: 18px; margin-bottom: 5px;">Nazwa</h2>
+                        <div style="display:flex; gap:5px; align-items:center;">
+                            <span id="info-poly-pano-icon" style="display:none; font-size:20px; cursor:pointer;" title="Dostępna panorama 360">🎞️</span>
+                            <span id="info-poly-photo-icon" style="display:none; font-size:20px;" title="Dostępne zdjęcia">📸</span>
+                            <span id="info-poly-hint" style="display:none; font-size:16px; color:#0af; animation: blinker 1.5s linear infinite;">🔍</span>
+                        </div>
+                    </div>
+                    <div id="info-poly-authors" style="display:flex; margin-bottom: 5px; padding-left: 10px;"></div>
+                    <p id="info-poly-stats"
+                        style="font-size: 13px; color: #0f0; margin-bottom: 5px; font-weight: bold;"></p>
+                    <p id="info-poly-desc" style="font-size: 12px; color: #ccc;">Opis...</p>
+                </div>
+                <div style="display:flex; gap: 10px; align-items:center;">
+                    <button id="info-poly-pano-btn" class="toggle-btn" style="display:none; background:#0af; box-shadow: 0 0 10px #0af;">🎞️ PANORAMA</button>
+                    <button id="info-poly-photo-btn" class="toggle-btn" style="display:none; background:#f0a; box-shadow: 0 0 10px #f0a;">📸 ZDJĘCIA</button>
+                    <button id="edit-poly-btn" class="toggle-btn">EDYTUJ</button>
+                    <button id="close-info-btn" class="cat-btn"
+                        style="border-radius: 50%; width: 30px; height: 30px; padding: 0;">X</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- EDYTOR TERENU -->
+        <div id="editor-panel" class="premium-panel"
+            style="position: absolute; top: 70px; left: 15px; width: 300px; display: none; z-index: 998;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <h3>EDYTOR TERENU</h3>
+                <div style="display:flex; gap:5px;">
+                    <button id="back-to-menu-terrain" class="cat-btn" style="padding: 2px 8px; font-size: 12px;">POWRÓT</button>
+                    <button id="close-editor"
+                        style="background:none; border:none; color:#0f0; font-size:24px; cursor:pointer;">X</button>
+                </div>
+            </div>
+
+            <label>Dodatkowi Autorzy:</label>
+            <div id="polyAuthorsList"
+                style="display:flex; flex-wrap:wrap; gap:4px; margin:5px 0; max-height: 80px; overflow-y: auto; border: 1px solid #0f0; padding: 5px;">
+            </div>
+
+            <label>Kategoria:</label>
+            <div style="display:flex; gap:5px; margin:5px 0;">
+                <button class="cat-btn" data-cat="terrain">Teren</button>
+                <button class="cat-btn" data-cat="road">Droga</button>
+                <button class="cat-btn" data-cat="pin">Pineska</button>
+            </div>
+            <label>Nazwa:</label>
+            <input type="text" id="polyName"
+                style="width:100%; background:#000; color:#0f0; border:1px solid #0f0; padding:8px; margin:5px 0;">
+            <label>Kolor:</label>
+            <input type="color" id="lineColor" value="#00ff00" style="width:100%; height:30px; margin:5px 0;">
+            <button id="closePathToggle" class="toggle-btn" style="width:100%; margin:5px 0;">ZAMKNIĘTY: ON</button>
+            <button id="temporaryToggle" class="toggle-btn off" style="width:100%; margin:5px 0;">TYMCZASOWY:
+                OFF</button>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
+                <button id="startDrawing"
+                    style="padding:12px; background:#0f0; color:#000; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">RYSOWANIE</button>
+                <button id="quickSaveBtn"
+                    style="padding:12px; background:#fff; color:#000; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">ZAPISZ</button>
+            </div>
+            <button id="poly-add-photo-btn" class="cat-btn" style="width:100%; margin-top:10px;">DODAJ ZDJĘCIE</button>
+            <button id="deletePolyBtn"
+                style="width:100%; padding:10px; background:#400; color:#f55; border:1px solid #f00; border-radius:8px; font-weight:bold; margin-top:10px; cursor:pointer; display:none;">USUŃ
+                POLIGON</button>
+        </div>
+
+        <!-- EDYTOR KOLEI -->
+        <div id="rail-mode-panel" class="premium-panel"
+            style="position: absolute; top: 125px; left: 15px; width: 280px; display: none; z-index: 998;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h3>TRYB KOLEI</h3>
+                <button id="close-rail"
+                    style="background:none; border:none; color:#0f0; font-size:24px; cursor:pointer;">X</button>
+            </div>
+            <div style="display:flex; gap:8px; margin-top:8px;">
+                <button class="cat-btn" data-mode="station">Stacja</button>
+                <button class="cat-btn" data-mode="intersection">Łącznik</button>
+                <button class="cat-btn" data-mode="rail">Tory</button>
+            </div>
+        </div>
+
+        <div id="rail-editor-panel" class="premium-panel"
+            style="position: absolute; top: 70px; left: 15px; width: 300px; display: none; z-index: 998;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h3>EDYTOR KOLEI</h3>
+                <button id="close-rail-editor"
+                    style="background:none; border:none; color:#0f0; font-size:24px; cursor:pointer;">X</button>
+            </div>
+            <label>Kategoria: <span id="rail-category">-</span></label>
+            <label>Nazwa:</label>
+            <input type="text" id="rail-polyName" placeholder="Nazwa stacji/linii"
+                style="width:100%; background:#000; color:#0f0; border:1px solid #0f0; padding:8px; margin:5px 0;">
+            <div id="rail-opis-section">
+                <label>Opis:</label>
+                <textarea id="rail-polyDesc"
+                    style="width:100%; height:60px; background:#000; color:#0f0; border:1px solid #0f0; padding:8px; margin:5px 0;"></textarea>
+            </div>
+            <label>Kolor:</label>
+            <input type="color" id="rail-lineColor" value="#00ff00" style="width:100%; height:30px; margin:5px 0;">
+            <button id="rail-temporaryToggle" class="toggle-btn off" style="width:100%; margin:5px 0;">TYMCZASOWY:
+                OFF</button>
+
+            <div id="rail-station-buttons" style="display:none;">
+                <button id="rail-add-in-btn" class="toggle-btn" style="width:100%; margin:5px 0;">DODAJ IN</button>
+                <button id="rail-add-out-btn" class="toggle-btn" style="width:100%; margin:5px 0;">DODAJ OUT</button>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
+                <button id="rail-startDrawing"
+                    style="padding:12px; background:#0f0; color:#000; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">START</button>
+                <button id="railQuickSaveBtn"
+                    style="padding:12px; background:#fff; color:#000; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">ZAPISZ</button>
+            </div>
+            <button id="rail-add-photo-btn" class="cat-btn" style="width:100%; margin-top:10px; display:none;">DODAJ
+                ZDJĘCIE</button>
+            <button id="railDeletePolyBtn"
+                style="width:100%; padding:10px; background:#400; color:#f55; border:1px solid #f00; border-radius:8px; font-weight:bold; margin-top:10px; cursor:pointer; display:none;">USUŃ
+                ELEMENT</button>
+        </div>
+
+        <!-- MODAL KODU -->
+        <div id="code-modal" class="premium-panel"
+            style="position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:2000; display:none; width:80%; max-width:600px;">
+            <h3 style="text-align:center;">GOTOWY KOD</h3>
+            <p style="text-align: center; font-size: 12px; color: #aaa;">Skopiuj i wklej do swojego pliku w folderze
+                poligons/</p>
+            <textarea id="code-text"
+                style="width:100%; height:200px; background:#000; color:#0f0; border:1px solid #0f0; padding:10px; margin-top:10px; font-family: monospace;"></textarea>
+            <div style="display:flex; justify-content:space-around; margin-top:15px;">
+                <button id="copy-btn" class="toggle-btn">KOPIUJ</button>
+                <button id="close-modal" class="toggle-btn">ZAMKNIJ / GOTOWE</button>
+            </div>
+        </div>
+
+        <!-- NOWE MENU DODAWANIA (Drzewo) -->
+        <div id="add-menu-panel" class="premium-panel"
+            style="position: absolute; top: 70px; left: 15px; width: 280px; display: none; z-index: 1001; padding: 15px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <h3 id="add-menu-title">CO DODAJEMY?</h3>
+                <button id="close-add-menu"
+                    style="background:none; border:none; color:#0f0; font-size:24px; cursor:pointer;">X</button>
+            </div>
+
+            <div id="add-menu-main" style="display: flex; flex-direction: column; gap: 10px;">
+                <button class="cat-btn add-main-opt" data-type="terrain" style="padding: 12px;">🌲 Teren</button>
+                <button class="cat-btn add-main-opt" data-type="road" style="padding: 12px;">🛣️ Droga</button>
+                <button class="cat-btn add-main-opt" data-type="rail_group" style="padding: 12px;">🚂 Koleje...</button>
+                <button class="cat-btn add-main-opt" data-type="pin" style="padding: 12px;">📍 Pineska</button>
+            </div>
+
+            <div id="add-menu-rail" style="display: none; flex-direction: column; gap: 10px;">
+                <button class="cat-btn add-sub-opt" data-type="station" style="padding: 12px;">🚉 Stacja</button>
+                <button class="cat-btn add-sub-opt" data-type="rail" style="padding: 12px;">🛤️ Linia (Tory)</button>
+                <button class="cat-btn add-sub-opt" data-type="intersection" style="padding: 12px;">🔗 Łącznik</button>
+                <button id="back-to-add-main" class="cat-btn"
+                    style="margin-top: 10px; border: 1px dashed #0f0; opacity: 0.7;">⬅ Powrót</button>
+            </div>
+        </div>
+
+        <!-- PANEL HISTORII -->
+        <div id="history-panel" class="premium-panel"
+            style="position:fixed; top:70px; right:15px; width:350px; height:70vh; display:none; z-index:1000; overflow-y:auto;">
+            <h3 style="text-align:center; border-bottom:1px solid #0f0; padding-bottom:10px;">HISTORIA ZMIAN</h3>
+            <div id="history-list"></div>
+        </div>
+
+        <!-- PORÓWNYWARKA (Comparison Slider) -->
+        <div id="compare-modal" class="premium-panel"
+            style="position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:3001; display:none; width:90vw; height:80vh; overflow:hidden; padding:0;">
+            <div id="compare-slider-container"
+                style="position:relative; width:100%; height:100%; overflow:hidden; background:#222;">
+                <div id="img-after"
+                    style="position:absolute; top:0; left:0; width:100%; height:100%; background-size:contain; background-repeat:no-repeat; background-position:center;">
+                </div>
+                <div id="img-before-wrapper"
+                    style="position:absolute; top:0; left:0; width:50%; height:100%; overflow:hidden; border-right:2px solid #0f0;">
+                    <div id="img-before"
+                        style="position:absolute; top:0; left:0; width:100vw; height:100%; background-size:contain; background-repeat:no-repeat; background-position:center;">
+                    </div>
+                </div>
+                <div id="compare-handle"
+                    style="position:absolute; top:0; left:50%; width:40px; height:100%; background:rgba(0,255,0,0.3); transform:translateX(-50%); cursor:ew-resize; display:flex; align-items:center; justify-content:center; z-index:10;">
+                    <div style="width:4px; height:100%; background:#0f0;"></div>
+                </div>
+                <button onclick="this.parentElement.parentElement.style.display='none'" class="cat-btn"
+                    style="position:absolute; top:10px; right:10px; z-index:20; border-radius:50%; width:35px; height:35px; padding:0;">X</button>
+            </div>
+        </div>
+
+        <!-- PANORAMA 360 VIEWER -->
+        <div id="pano-viewer-modal" class="special-modal" style="display:none; flex-direction:column;">
+            <div style="padding: 10px; display:flex; justify-content:space-between; align-items:center; background:#111; border-bottom:1px solid #0f0;">
+                <h2 id="pano-title">Panorama 360</h2>
+                <button onclick="document.getElementById('pano-viewer-modal').style.display='none'" class="toggle-btn" style="background:#f00; box-shadow:none; padding: 5px 15px;">ZAMKNIJ X</button>
+            </div>
+            <div style="flex:1; position:relative; overflow:hidden; background:#000;">
+                <div id="pano-cube-container">
+                    <div id="pano-cube">
+                        <div class="pano-face face-front"></div>
+                        <div class="pano-face face-right"></div>
+                        <div class="pano-face face-back"></div>
+                        <div class="pano-face face-left"></div>
+                        <div class="pano-face face-top"></div>
+                        <div class="pano-face face-bottom"></div>
+                    </div>
+                </div>
+                <div id="pano-controls" style="position:absolute; bottom:20px; left:50%; transform:translateX(-50%); display:flex; gap:15px; background:rgba(0,0,0,0.5); padding:10px; border-radius:15px; z-index:10;">
+                    <span style="color:#fff; font-size:12px; align-self:center;">Przeciągnij myszką, aby obrócić | Scrolluj, aby zoomować</span>
+                </div>
+            </div>
+        </div>
     </div>
-    <!-- KLUCZOWE: pozycje.js PRZED script.js -->
+
+    <script>
+        // 1. Definicja registerPolygons MUSI być pierwsza
+        window.registerPolygons = function (data) {
+            if (!window.extraPolygons) window.extraPolygons = [];
+            
+            // Jeśli mamy ustawionego autora w kontekście ładowania, przypisz go
+            if (window.currentLoadingAuthor) {
+                data.forEach(poly => {
+                    if (!poly.authors) poly.authors = [];
+                    if (!poly.authors.includes(window.currentLoadingAuthor)) {
+                        poly.authors.push(window.currentLoadingAuthor);
+                    }
+                });
+            }
+            
+            window.extraPolygons.push(...data);
+            if (window.loadPolygonsFromData) window.loadPolygonsFromData();
+        };
+
+        window.currentLoadingAuthor = null;
+    </script>
+
+    <script src="pleyer.js"></script>
     <script src="pozycje.js"></script>
+    
+    <script>
+        // 2. Ładowanie plików poligonów z przypisaniem autorów
+        function loadPlayerPolygons() {
+            if (!window.playersData) return;
+
+            // Najpierw ładujemy publiczne (bez autora)
+            const publicScript = document.createElement('script');
+            publicScript.src = 'poligons/public.js';
+            document.body.appendChild(publicScript);
+
+            // Potem każdego gracza z listy
+            window.playersData.forEach(p => {
+                if (p.poligon) {
+                    const s = document.createElement('script');
+                    s.src = p.poligon;
+                    s.onload = () => { window.currentLoadingAuthor = null; };
+                    // Ustawiamy autora tuż przed wykonaniem? 
+                    // To ryzykowne przy asynchroniczności, ale przy lokalnych plikach zazwyczaj działa.
+                    // Bezpieczniej: wczytać plik jako tekst i eval lub po prostu dodać parametr do URL i w pliku sprawdzić?
+                    // Nie, najprościej: po prostu ładujmy je sekwencyjnie.
+                }
+            });
+        }
+        
+        // Ponieważ pliki .js w poligons/ są statyczne i nie biorą parametrów, 
+        // a my nie chcemy zmieniać każdego pliku, użyjemy małego triku:
+        // Wczytamy pliki po kolei.
+        
+        async function loadAllPolygons() {
+            // Publiczne
+            await loadScript('poligons/public.js', null);
+            
+            // Gracze
+            if (window.playersData) {
+                for (const p of window.playersData) {
+                    if (p.poligon) {
+                        await loadScript(p.poligon, p.nick);
+                    }
+                }
+            }
+        }
+
+        function loadScript(src, author) {
+            return new Promise((resolve) => {
+                window.currentLoadingAuthor = author;
+                const s = document.createElement('script');
+                s.src = src;
+                s.onload = () => {
+                    window.currentLoadingAuthor = null;
+                    resolve();
+                };
+                s.onerror = () => {
+                    window.currentLoadingAuthor = null;
+                    resolve();
+                };
+                document.body.appendChild(s);
+            });
+        }
+
+        loadAllPolygons();
+    </script>
+
     <script src="script.js"></script>
 </body>
+</html>
+
 </html>

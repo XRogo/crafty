@@ -1,0 +1,37 @@
+dodaj 
+ Teren
+    Nazwa (miejsce na nazwe)
+    Autorzy (do wyboru tak jak teraz)
+    Opis (opcjonalny - pole tekstowe)
+    Kolor (tak jak teraz możliwość wyboru koloru)
+    Tymczasowy tak / nie 
+ Droga
+    Nazwa (miejsce na nazwe)
+    Autorzy (do wyboru tak jak teraz)
+    Opis (opcjonalny - pole tekstowe)
+    Tymczasowy tak / nie 
+ Koleje
+    Stacja
+       Nazwa (miejsce na nazwe)
+       Autorzy (do wyboru tak jak teraz)
+       Opis (opcjonalny - pole tekstowe)
+       Tymczasowy tak / nie 
+       Dodaj zdjęcie (opcjonalne miejce na dodanie zdjęcia ())
+    Linia
+       z kąd (nazwa stacji z której jest linia)
+       do kąd (nazwa stacji do której jest linia)
+       kolor (tak jak teraz możliwość wyboru koloru)
+       tymczasowa tak / nie
+       autorzy (do wyboru tak jak teraz)
+    Łącznik
+       nazwa
+       kolor
+       tymczasowa tak / nie
+       autorzy (do wyboru tak jak teraz)
+ Pineska
+    Nazwa (miejsce na nazwe)
+    Autorzy (do wyboru tak jak teraz)
+    Opis (opcjonalny - pole tekstowe)
+    Kolor (tak jak teraz możliwość wyboru koloru)
+    Tymczasowy tak / nie 
+    Dodaj zdjęcie (opcjonalne miejce na dodanie zdjęcia)
