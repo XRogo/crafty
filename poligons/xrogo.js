@@ -8,7 +8,6 @@ window.registerPolygons([
         closePath: false,
         name: "Teren XRogo",
         category: "terrain",
-        autor: "XRogo"
     },
     {
         number: 2,
@@ -19,7 +18,6 @@ window.registerPolygons([
         closePath: true,
         name: 'XRogo',
         category: 1,
-        autor: "XRogo"
     },
     {
         number: 16,
@@ -30,22 +28,4 @@ window.registerPolygons([
         name: "Farma XRogo",
         category: 1
     },
-{
- points: [[-336,-462],[-300,-403],[-201,-436],[-229,-524],[-336,-542]],
- lineColor: "#00ff00",
- fillColor: "#00ff0033",
- closePath: true,
- name: "dupa test",
- category: "terrain",
- authors: ["XRogo"],
-},
-{
- points: [[269,60],[283,111],[365,121],[435,109],[445,32],[392,0],[320,7]],
- lineColor: "#02d2ed",
- fillColor: "#02d2ed33",
- closePath: true,
- name: "Papier",
- category: "terrain",
- authors: ["XRogo"],
-},
 ]);

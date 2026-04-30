@@ -1,1 +1,11 @@
-﻿window.registerPolygons([]);
+﻿window.registerPolygons([
+    {
+        points: [[-106, 2140], [3, 2055], [159, 1985], [347, 1965], [499, 1985], [615, 2101], [619, 2217], [521, 2318], [402, 2352], [224, 2370], [94, 2381], [-20, 2394], [-120, 2354], [-165, 2277]],
+        lineColor: "#0084ff",
+        fillColor: "#0084ff33",
+        closePath: true,
+        name: "Agna28",
+        opis: "Dziki zachód",
+        category: "terrain",
+    },
+]);
