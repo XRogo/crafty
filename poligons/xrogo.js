@@ -30,5 +30,13 @@ window.registerPolygons([
         name: "Farma XRogo",
         category: 1
     },
-
+{
+ points: [[-336,-462],[-300,-403],[-201,-436],[-229,-524],[-336,-542]],
+ lineColor: "#00ff00",
+ fillColor: "#00ff0033",
+ closePath: true,
+ name: "dupa test",
+ category: "terrain",
+ authors: ["XRogo"],
+},
 ]);
