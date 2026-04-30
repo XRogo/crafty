@@ -347,3 +347,15 @@ window.registerPolygons([
     //     category: 1
     // }
 ]);
+
+window.registerPolygons([
+{
+ points: [[152,626],[572,748]],
+ lineColor: "#ffffff",
+ fillColor: "transparent",
+ closePath: false,
+ name: "ttttt",
+ category: "road",
+ authors: ["Mikusierro"],
+},
+]);
