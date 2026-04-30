@@ -204,6 +204,47 @@
             color: #fff;
         }
 
+        /* STATUS ZAPISU */
+        #save-status-container {
+            position: absolute;
+            bottom: 25px;
+            right: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            z-index: 30;
+            font-family: 'Courier New', monospace;
+        }
+
+        #server-status-text {
+            color: #555;
+            font-weight: bold;
+            font-size: 13px;
+            text-transform: uppercase;
+            text-shadow: 0 0 5px #000;
+        }
+
+        #server-status-text.online { color: #0f0; text-shadow: 0 0 10px #0f0; }
+        #server-status-text.loading { color: #ff0; animation: server-blink 1s infinite; }
+        #server-status-text.error { color: #f00; text-shadow: 0 0 10px #f00; }
+
+        #submit-changes-btn {
+            display: none;
+            padding: 6px 12px;
+            background: #ff00ff;
+            color: #000;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 12px;
+            box-shadow: 0 0 15px #ff00ff;
+            transition: transform 0.2s;
+        }
+
+        #submit-changes-btn:hover { transform: scale(1.05); }
+        @keyframes server-blink { 50% { opacity: 0.3; } }
+
         .special-modal {
             position: fixed;
             top: 50%;
@@ -339,6 +380,12 @@
             <button class="toggle-btn" data-cat="rail">Tory</button>
             <button class="toggle-btn" data-cat="pin">Pineski</button>
             <button class="toggle-btn off" data-type="projects">Projekty</button>
+        </div>
+
+        <!-- NOWY KONTENER STATUSU I ZAPISU -->
+        <div id="save-status-container">
+            <span id="server-status-text">Zapis: Sprawdzanie...</span>
+            <button id="submit-changes-btn">WPROWADŹ ZMIANY</button>
         </div>
 
         <div id="zoom-container">
@@ -482,6 +529,7 @@
             <div style="display:flex; justify-content:space-around; margin-top:15px;">
                 <button id="copy-btn" class="toggle-btn">KOPIUJ</button>
                 <button id="close-modal" class="toggle-btn">ZAMKNIJ / GOTOWE</button>
+                <button id="server-save-btn" class="toggle-btn" style="background:#ff00ff; box-shadow: 0 0 15px #ff00ff;">WPROWADŹ ZMIANĘ</button>
             </div>
         </div>
 

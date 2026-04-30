@@ -1,5 +1,5 @@
-/* ==============================================================
-   MAPA MINECRAFT v21 – FINALNA WERSJA – WSZYSTKO DZIAŁA!
+﻿/* ==============================================================
+   MAPA MINECRAFT v21 â€“ FINALNA WERSJA â€“ WSZYSTKO DZIAĹA!
    ============================================================== */
 
 // POLIGONY I STANY
@@ -46,12 +46,12 @@ function loadPolygonsFromData() {
             photo: p.photo || null,
             authors: p.authors || (p.autor ? [p.autor] : (p.author ? [p.author] : []))
         }));
-        
+
         newPolys.forEach(np => {
-            const existing = polygons.find(p => (p.name === np.name && p.name !== '') || 
-                           (JSON.stringify(p.points || p.location) === JSON.stringify(np.points || np.location)));
+            const existing = polygons.find(p => (p.name === np.name && p.name !== '') ||
+                (JSON.stringify(p.points || p.location) === JSON.stringify(np.points || np.location)));
             if (existing) {
-                // Połącz właściwości (np. dodaj panorama jeśli brakowało)
+                // PoĹ‚Ä…cz wĹ‚aĹ›ciwoĹ›ci (np. dodaj panorama jeĹ›li brakowaĹ‚o)
                 Object.assign(existing, np);
             } else {
                 polygons.push(np);
@@ -62,16 +62,16 @@ function loadPolygonsFromData() {
 
     if (window.polygonsData) {
         processData(window.polygonsData);
-        window.polygonsData = null; // Wyczyść po przetworzeniu
+        window.polygonsData = null; // WyczyĹ›Ä‡ po przetworzeniu
     }
     if (window.extraPolygons) {
         processData(window.extraPolygons);
-        window.extraPolygons = []; // Wyczyść po przetworzeniu
+        window.extraPolygons = []; // WyczyĹ›Ä‡ po przetworzeniu
     }
 }
 window.loadPolygonsFromData = loadPolygonsFromData;
 loadPolygonsFromData();
-// Ponów kilka razy dla asynchronicznych skryptów
+// PonĂłw kilka razy dla asynchronicznych skryptĂłw
 setTimeout(loadPolygonsFromData, 500);
 setTimeout(loadPolygonsFromData, 2000);
 setTimeout(loadPolygonsFromData, 5000);
@@ -139,7 +139,7 @@ const addMenuMain = document.getElementById('add-menu-main');
 const addMenuRail = document.getElementById('add-menu-rail');
 const backToAddMain = document.getElementById('back-to-add-main');
 
-// Funkcje statystyk (Pole/Długość)
+// Funkcje statystyk (Pole/DĹ‚ugoĹ›Ä‡)
 function calculatePolygonArea(pts) {
     if (pts.length < 3) return 0;
     let area = 0;
@@ -154,21 +154,21 @@ function calculatePolygonArea(pts) {
 function calculatePathLength(pts) {
     let len = 0;
     for (let i = 0; i < pts.length - 1; i++) {
-        const dx = pts[i+1][0] - pts[i][0];
-        const dy = pts[i+1][1] - pts[i][1];
+        const dx = pts[i + 1][0] - pts[i][0];
+        const dy = pts[i + 1][1] - pts[i][1];
         len += Math.sqrt(dx * dx + dy * dy);
     }
     return len;
 }
 
-// Inicjalizacja autorów i Logowanie
+// Inicjalizacja autorĂłw i Logowanie
 let currentUser = null;
 function initLogin() {
     const userSelect = document.getElementById('user-select');
     if (!window.playersData) return;
-    
+
     userSelect.innerHTML = window.playersData.map(p => `<option value="${p.nick}">${p.nick}</option>`).join('');
-    
+
     const saved = localStorage.getItem('craftly_user');
     if (saved) {
         login(saved);
@@ -178,7 +178,7 @@ function initLogin() {
 function login(nick) {
     currentUser = window.playersData.find(p => p.nick === nick);
     if (!currentUser) return;
-    
+
     localStorage.setItem('craftly_user', nick);
     document.getElementById('login-modal').style.display = 'none';
     document.getElementById('user-nick').textContent = nick;
@@ -220,7 +220,7 @@ let clickStartX = 0, clickStartY = 0;
 let clickWasOnPoint = false;
 let clickWasOnEdge = false;
 
-// Widoczność
+// WidocznoĹ›Ä‡
 window.visibleCategories = {
     'terrain': true,
     'road': true,
@@ -231,7 +231,7 @@ window.visibleCategories = {
 };
 window.visibleTemporary = false;
 
-//wczytywanie mapy – resize i skalowanie
+//wczytywanie mapy â€“ resize i skalowanie
 function resize() {
     pixelRatio = window.devicePixelRatio || 1;
     canvas.width = innerWidth * pixelRatio;
@@ -258,20 +258,20 @@ function getPixelScale() {
     return { scale: tps / bpt, tilePixelSize: tps };
 }
 
-//wczytywanie mapy – ładowanie kafelków
+//wczytywanie mapy â€“ Ĺ‚adowanie kafelkĂłw
 function loadTile(tx, ty, level) {
     const key = `${level.folder}_${tx}_${ty}`;
     if (cache.has(key)) return cache.get(key);
     const PNG_IN_256 = new Set(['-2_2', '-2_1', '-3_1', '-4_1', '-8_1', '-9_1', '-2_0', '-3_0', '-4_0', '-8_0', '-9_0', '4_-1', '-2_-1', '-3_-1', '-4_-1',
-                                '-6_-1', '-7_-1', '-2_-3', '-3_-3', '-2_-4', '1_1', '-1_1', '1_0', '0_0', '-1_0', '1_-1', '-1_-1', '0_1', '0_-1','0_-6','-1_-5',
-                                '-1_-6','0_-5','-5_2','-4_2','-3_-4','-3_2','-2_-2','-2_2','-1_-4','-1_2','0_2','1_2','-4_-2','-3_-2','-8_-1','-9_-1','-8_2',
-                                '-9_-2','-28_4','-28_3','-27_4','-28_3','-26_3','-33_-25','-33_-24','-2_-2','0_-4']);
+        '-6_-1', '-7_-1', '-2_-3', '-3_-3', '-2_-4', '1_1', '-1_1', '1_0', '0_0', '-1_0', '1_-1', '-1_-1', '0_1', '0_-1', '0_-6', '-1_-5',
+        '-1_-6', '0_-5', '-5_2', '-4_2', '-3_-4', '-3_2', '-2_-2', '-2_2', '-1_-4', '-1_2', '0_2', '1_2', '-4_-2', '-3_-2', '-8_-1', '-9_-1', '-8_2',
+        '-9_-2', '-28_4', '-28_3', '-27_4', '-28_3', '-26_3', '-33_-25', '-33_-24', '-2_-2', '0_-4']);
     const tryLoad = (ext) => {
         const img = new Image();
         img.src = `tiles/${level.folder}/${tx}_${ty}.${ext}`;
         const p = new Promise(r => {
             img.onload = () => {
-                img.alpha = 0; // Początkowa przeźroczystość dla efektu fade-in
+                img.alpha = 0; // PoczÄ…tkowa przeĹşroczystoĹ›Ä‡ dla efektu fade-in
                 cache.set(key, img);
                 r(img);
             };
@@ -293,11 +293,11 @@ async function processTileQueue() {
     if (isTileLoading || tileQueue.length === 0) return;
     isTileLoading = true;
     const { tx, ty, level, key } = tileQueue.shift();
-    
+
     if (!cache.has(key) || cache.get(key) instanceof Promise) {
         await loadTile(tx, ty, level);
     }
-    
+
     isTileLoading = false;
     processTileQueue();
 }
@@ -321,7 +321,7 @@ function drawTiles() {
     const bpt = BLOCKS_PER_TILE[level.size];
     const { scale: ppb, tilePixelSize } = getPixelScale();
     const cx = innerWidth / 2, cy = innerHeight / 2;
-    
+
     const bounds = getViewportBounds();
     const startTx = Math.floor(bounds.minX / bpt);
     const endTx = Math.ceil(bounds.maxX / bpt);
@@ -338,7 +338,7 @@ function drawTiles() {
                 const bz = ty * bpt;
                 const rx = cx + (bx - viewX) * ppb;
                 const ry = cy + (bz - viewY) * ppb;
-                
+
                 if (img.alpha < 1) {
                     img.alpha += 0.1;
                     ctx.globalAlpha = img.alpha;
@@ -346,7 +346,7 @@ function drawTiles() {
                 } else {
                     ctx.globalAlpha = 1;
                 }
-                
+
                 ctx.drawImage(img, rx, ry, tilePixelSize, tilePixelSize);
             } else if (!cache.has(key)) {
                 if (!tileQueue.find(t => t.key === key)) {
@@ -382,19 +382,19 @@ slider.addEventListener('input', e => {
 
 function updateInfo() {
     const rect = canvas.getBoundingClientRect();
-    const mx = (lastX || innerWidth/2) - rect.left;
-    const my = (lastY || innerHeight/2) - rect.top;
+    const mx = (lastX || innerWidth / 2) - rect.left;
+    const my = (lastY || innerHeight / 2) - rect.top;
     const [wx, wz] = screenToWorld(mx + rect.left, my + rect.top);
     info.textContent = `(${Math.round(wx)}, ${Math.round(wz)})`;
     zoomLabel.textContent = `Zoom: ${zoom.toFixed(2)}x`;
     slider.value = zoom;
 
-    // Aktualizacja pola i objętości jeśli rysujemy
+    // Aktualizacja pola i objÄ™toĹ›ci jeĹ›li rysujemy
     if (isDrawing && tempPoints.length > 2) {
         const area = Math.abs(calculateArea(tempPoints));
         document.getElementById('area-info').style.display = 'block';
         document.getElementById('area-val').textContent = Math.round(area);
-        const height = 1; // domyślna wysokość, można dodać input
+        const height = 1; // domyĹ›lna wysokoĹ›Ä‡, moĹĽna dodaÄ‡ input
         document.getElementById('vol-val').textContent = Math.round(area * height);
     } else {
         document.getElementById('area-info').style.display = 'none';
@@ -412,7 +412,7 @@ function calculateArea(points) {
     return area / 2;
 }
 
-// Sprawdzanie czy punkt jest wewnątrz poligonu
+// Sprawdzanie czy punkt jest wewnÄ…trz poligonu
 function isPointInPolygon(x, z, points) {
     let inside = false;
     for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
@@ -454,7 +454,7 @@ function getPlayerHead(nick) {
     return p ? p.icon : 'head/default.png';
 }
 
-//wyświetlanie poligonów – pomocnicze
+//wyĹ›wietlanie poligonĂłw â€“ pomocnicze
 function calculateCentroid(points) {
     if (!points.length) return [0, 0];
     let x = 0, z = 0;
@@ -502,7 +502,7 @@ function drawTextAlongPath(text, points, offset = 0, color = 'white') {
     }
 }
 
-//wyświetlanie poligonów – RYSOWANIE (Z RESTORE!)
+//wyĹ›wietlanie poligonĂłw â€“ RYSOWANIE (Z RESTORE!)
 function drawPolygons() {
     ctx.save();
     ctx.scale(pixelRatio, pixelRatio);
@@ -517,7 +517,7 @@ function drawPolygons() {
     polygons.forEach((p, idx) => {
         if (!window.visibleCategories[p.category]) return;
         if (p.temporary && !window.visibleTemporary) return;
-        
+
         let points = p.points || p.location || [];
         if (!points.length) return;
 
@@ -527,9 +527,9 @@ function drawPolygons() {
             if (x < minPX) minPX = x; if (x > maxPX) maxPX = x;
             if (z < minPZ) minPZ = z; if (z > maxPZ) maxPZ = z;
         });
-        
+
         const margin = 100 / zoom;
-        if (maxPX < bounds.minX - margin || minPX > bounds.maxX + margin || 
+        if (maxPX < bounds.minX - margin || minPX > bounds.maxX + margin ||
             maxPZ < bounds.minY - margin || minPZ > bounds.maxY + margin) return;
 
         const isSelected = selectedPolygonIndex === idx;
@@ -552,7 +552,7 @@ function drawPolygons() {
             ctx.fillStyle = (['terrain', 'station', 'intersection', 'pin'].includes(category) ? fillColor : 'transparent');
             if (isSelected) ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
             ctx.fill();
-            
+
             ctx.strokeStyle = lineColor;
             if (isSelected) ctx.strokeStyle = '#fff';
             ctx.lineWidth = (['terrain', 'station', 'intersection', 'pin'].includes(category) ? 2.5 / zoom : 6 / zoom);
@@ -567,15 +567,15 @@ function drawPolygons() {
             const [cx, cz] = category === 'pin' && points.length === 1 ? points[0] : calculateCentroid(points);
             ctx.strokeStyle = 'black';
             ctx.lineWidth = 2 / zoom;
-            ctx.strokeText(name, cx, cz - (category === 'pin' ? 15/zoom : 0));
+            ctx.strokeText(name, cx, cz - (category === 'pin' ? 15 / zoom : 0));
             ctx.fillStyle = isSelected ? '#0f0' : 'white';
-            ctx.fillText(name, cx, cz - (category === 'pin' ? 15/zoom : 0));
+            ctx.fillText(name, cx, cz - (category === 'pin' ? 15 / zoom : 0));
         }
     });
     ctx.restore();
 }
 
-//rysowanie i edytowanie – tymczasowy poligon
+//rysowanie i edytowanie â€“ tymczasowy poligon
 function drawTempPolygon() {
     if (!isDrawing || tempPoints.length === 0) return;
     ctx.save();
@@ -603,7 +603,7 @@ function drawTempPolygon() {
     ctx.fillStyle = (['terrain', 'station', 'intersection'].includes(editorConfig.category) ? editorConfig.fillColor : 'transparent');
     ctx.fill();
     ctx.strokeStyle = editorConfig.lineColor;
-    ctx.lineWidth = (['terrain', 'station', 'intersection'].includes(editorConfig.category) ? 3/zoom : 6/zoom);
+    ctx.lineWidth = (['terrain', 'station', 'intersection'].includes(editorConfig.category) ? 3 / zoom : 6 / zoom);
     ctx.stroke();
 
     const drawPoints = editorConfig.category === 'intersection' ? (tempPoints.length ? [tempPoints[0]] : []) : tempPoints;
@@ -611,7 +611,7 @@ function drawTempPolygon() {
         const isFirst = i === 0;
         const isLast = i === drawPoints.length - 1;
         ctx.beginPath();
-        ctx.arc(x, z, 6 / zoom, 0, Math.PI*2);
+        ctx.arc(x, z, 6 / zoom, 0, Math.PI * 2);
         let fill = (isFirst || (isLast && blink)) ? '#00ffff' : '#ff0000';
         if (editorConfig.category === 'station') {
             if (i === inPointIndex) fill = '#00ff00';
@@ -626,7 +626,7 @@ function drawTempPolygon() {
 
     if (edgePoint) {
         ctx.beginPath();
-        ctx.arc(edgePoint.x, edgePoint.z, 7 / zoom, 0, Math.PI*2);
+        ctx.arc(edgePoint.x, edgePoint.z, 7 / zoom, 0, Math.PI * 2);
         ctx.fillStyle = '#00ff00';
         ctx.fill();
         ctx.strokeStyle = '#000';
@@ -637,13 +637,13 @@ function drawTempPolygon() {
 }
 
 //miganie punktu
-setInterval(() => { 
-    blink = !blink; 
+setInterval(() => {
+    blink = !blink;
     connectionBlinkColor = blink ? '#ffff00' : '#0000ff';
-    if (isDrawing) draw(); 
+    if (isDrawing) draw();
 }, 500);
 
-//rysowanie i edytowanie – wykrywanie
+//rysowanie i edytowanie â€“ wykrywanie
 function pointDistanceToSegment(px, pz, x1, z1, x2, z2) {
     const A = px - x1, B = pz - z1, C = x2 - x1, D = z2 - z1;
     const dot = A * C + B * D;
@@ -683,8 +683,8 @@ function showPolyInfo(idx) {
     const panel = document.getElementById('poly-info-panel');
     document.getElementById('info-poly-name').textContent = p.name || "Bez nazwy";
     document.getElementById('info-poly-desc').textContent = p.opis || "";
-    
-    // Ikony i Przyciski Panorama/Zdjęcia
+
+    // Ikony i Przyciski Panorama/ZdjÄ™cia
     const panoIcon = document.getElementById('info-poly-pano-icon');
     const photoIcon = document.getElementById('info-poly-photo-icon');
     const panoBtn = document.getElementById('info-poly-pano-btn');
@@ -698,7 +698,7 @@ function showPolyInfo(idx) {
     if (document.getElementById('info-poly-hint')) {
         document.getElementById('info-poly-hint').style.display = (hasPano || hasPhoto) ? 'inline' : 'none';
     }
-    
+
     if (panoBtn) {
         panoBtn.style.display = hasPano ? 'block' : 'none';
         panoBtn.onclick = () => openPanoViewer(p.panorama, p.name);
@@ -707,17 +707,17 @@ function showPolyInfo(idx) {
         photoBtn.style.display = hasPhoto ? 'block' : 'none';
     }
 
-    // Obliczanie statystyk (Pole / Długość)
+    // Obliczanie statystyk (Pole / DĹ‚ugoĹ›Ä‡)
     const stats = document.getElementById('info-poly-stats');
     const pts = p.points || p.location || [];
     if (['terrain', 'station', 'intersection', 'pin'].includes(p.category)) {
         const area = Math.round(calculatePolygonArea(pts));
-        stats.textContent = `Pole: ${area} m²`;
+        stats.textContent = `Pole: ${area} mÂ˛`;
     } else {
         const len = Math.round(calculatePathLength(pts));
-        stats.textContent = `Długość: ${len} m`;
+        stats.textContent = `DĹ‚ugoĹ›Ä‡: ${len} m`;
     }
-    
+
     const authorsDiv = document.getElementById('info-poly-authors');
     const authorList = (p.authors && p.authors.length > 0) ? p.authors : (p.author ? [p.author] : ["?"]);
     authorsDiv.innerHTML = authorList.map(nick => `
@@ -731,7 +731,7 @@ function showPolyInfo(idx) {
 // LOGIKA PANORAMY 3D CUBEMAP
 let panoYaw = 0;
 let panoPitch = 0;
-let panoZoom = 500; // Dopasowane do nowej skali sześcianu
+let panoZoom = 500; // Dopasowane do nowej skali szeĹ›cianu
 let isPanoDragging = false;
 let lastPanoX = 0, lastPanoY = 0;
 
@@ -739,8 +739,8 @@ function openPanoViewer(path, title) {
     document.getElementById('pano-title').textContent = `Panorama: ${title}`;
     const modal = document.getElementById('pano-viewer-modal');
     modal.style.display = 'flex';
-    
-    // Przypisz obrazy do ścian sześcianu (front, right, back, left, top, bottom)
+
+    // Przypisz obrazy do Ĺ›cian szeĹ›cianu (front, right, back, left, top, bottom)
     const faces = ['front', 'right', 'back', 'left', 'top', 'bottom'];
     faces.forEach((face, i) => {
         const div = document.querySelector(`.face-${face}`);
@@ -756,12 +756,12 @@ function openPanoViewer(path, title) {
 function updatePanoTransform() {
     const cube = document.getElementById('pano-cube');
     const container = document.getElementById('pano-cube-container');
-    // Przesuwamy sześcian o wartość panoZoom w stronę kamery, aby być DOKŁADNIE w jego środku
+    // Przesuwamy szeĹ›cian o wartoĹ›Ä‡ panoZoom w stronÄ™ kamery, aby byÄ‡ DOKĹADNIE w jego Ĺ›rodku
     if (cube) cube.style.transform = `translate3d(0, 0, ${panoZoom}px) rotateX(${panoPitch}deg) rotateY(${panoYaw}deg)`;
     if (container) container.style.perspective = `${panoZoom}px`;
 }
 
-// Obsługa przeciągania
+// ObsĹ‚uga przeciÄ…gania
 document.getElementById('pano-cube-container')?.addEventListener('pointerdown', (e) => {
     isPanoDragging = true;
     lastPanoX = e.clientX;
@@ -773,10 +773,10 @@ window.addEventListener('pointermove', (e) => {
     if (!isPanoDragging) return;
     const dx = e.clientX - lastPanoX;
     const dy = e.clientY - lastPanoY;
-    // Odwrócona oś myszy (naturalna dla panoramy)
+    // OdwrĂłcona oĹ› myszy (naturalna dla panoramy)
     panoYaw -= dx * 0.15;
     panoPitch += dy * 0.15;
-    panoPitch = Math.max(-85, Math.min(85, panoPitch)); 
+    panoPitch = Math.max(-85, Math.min(85, panoPitch));
     lastPanoX = e.clientX;
     lastPanoY = e.clientY;
     updatePanoTransform();
@@ -786,7 +786,7 @@ window.addEventListener('pointerup', () => {
     isPanoDragging = false;
 });
 
-// Obsługa zoomu
+// ObsĹ‚uga zoomu
 document.getElementById('pano-cube-container')?.addEventListener('wheel', (e) => {
     e.preventDefault();
     panoZoom = Math.max(300, Math.min(2000, panoZoom + e.deltaY));
@@ -799,7 +799,7 @@ function panoAutoRotate() {
     if (!isPanoDragging && document.getElementById('pano-viewer-modal').style.display === 'flex') {
         const now = Date.now();
         const delta = (now - autoRotLastTime) / 1000;
-        panoYaw += delta * 2; // Wolny obrót (2 stopnie na sekunde)
+        panoYaw += delta * 2; // Wolny obrĂłt (2 stopnie na sekunde)
         updatePanoTransform();
     }
     autoRotLastTime = Date.now();
@@ -840,7 +840,7 @@ function detectHover(x, y) {
     if (tempPoints.length > 1) {
         for (let i = 0; i < tempPoints.length - 1; i++) {
             const a = tempPoints[i];
-        const b = tempPoints[i + 1];
+            const b = tempPoints[i + 1];
             const { dist, x: px, z: pz } = pointDistanceToSegment(wx, wz, a[0], a[1], b[0], b[1]);
             if (dist < 15 / getPixelScale().scale) {
                 hoverEdge = i;
@@ -851,7 +851,7 @@ function detectHover(x, y) {
     }
 }
 
-//obsługa myszy i dotyku
+//obsĹ‚uga myszy i dotyku
 canvas.addEventListener('pointerdown', e => {
     if (e.button !== 0) return;
     lastX = e.clientX; lastY = e.clientY;
@@ -905,13 +905,13 @@ canvas.addEventListener('pointermove', e => {
     }
 });
 
-//obsługa myszy i dotyku
+//obsĹ‚uga myszy i dotyku
 canvas.addEventListener('pointerdown', e => {
     if (e.button !== 0) return;
     lastX = e.clientX; lastY = e.clientY;
     clickStartTime = Date.now();
     clickStartX = e.clientX; clickStartY = e.clientY;
-    
+
     if (isDrawing) {
         detectHover(e.clientX, e.clientY);
         if (hoverPoint !== -1) {
@@ -973,7 +973,7 @@ canvas.addEventListener('pointerup', e => {
     // CLICK (short and no drag)
     if (elapsed < 250 && dist < 10) {
         const [wx, wz] = screenToWorld(e.clientX, e.clientY);
-        
+
         if (isDrawing) {
             detectHover(e.clientX, e.clientY);
             if (hoverPoint !== -1) {
@@ -990,7 +990,7 @@ canvas.addEventListener('pointerup', e => {
                 const p = polygons[i];
                 if (!window.visibleCategories[p.category]) continue;
                 if (p.temporary && !window.visibleTemporary) continue;
-                
+
                 const pts = p.points || p.location || [];
                 if (isPointInPolygon(wx, wz, pts)) {
                     foundIndices.push(i);
@@ -998,7 +998,7 @@ canvas.addEventListener('pointerup', e => {
             }
 
             if (foundIndices.length > 0) {
-                // Jeśli aktualnie wybrany poligon jest w liście znalezionych, wybierz następny (cykl)
+                // JeĹ›li aktualnie wybrany poligon jest w liĹ›cie znalezionych, wybierz nastÄ™pny (cykl)
                 let currentPos = foundIndices.indexOf(selectedPolygonIndex);
                 let nextIdx = foundIndices[(currentPos + 1) % foundIndices.length];
                 showPolyInfo(nextIdx);
@@ -1009,25 +1009,25 @@ canvas.addEventListener('pointerup', e => {
     }
 });
 
-//zoom kołem i dotykiem
+//zoom koĹ‚em i dotykiem
 canvas.addEventListener('wheel', e => {
     e.preventDefault();
     const rect = canvas.getBoundingClientRect();
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
     const oldPpb = getPixelScale().scale;
-    const worldX = viewX + (mx - innerWidth/2) / oldPpb;
-    const worldZ = viewY + (my - innerHeight/2) / oldPpb;
-    
-    // Krzywa wykładnicza zoomu
+    const worldX = viewX + (mx - innerWidth / 2) / oldPpb;
+    const worldZ = viewY + (my - innerHeight / 2) / oldPpb;
+
+    // Krzywa wykĹ‚adnicza zoomu
     const zoomFactor = 1.15;
     if (e.deltaY < 0) zoom = Math.min(40, zoom * zoomFactor);
     else zoom = Math.max(0.1, zoom / zoomFactor);
-    
+
     slider.value = zoom;
     const newPpb = getPixelScale().scale;
-    viewX = worldX - (mx - innerWidth/2) / newPpb;
-    viewY = worldZ - (my - innerHeight/2) / newPpb;
+    viewX = worldX - (mx - innerWidth / 2) / newPpb;
+    viewY = worldZ - (my - innerHeight / 2) / newPpb;
     clampView();
     draw();
 }, { passive: false });
@@ -1050,13 +1050,13 @@ canvas.addEventListener('touchmove', e => {
         const mx = (t1.clientX + t2.clientX) / 2;
         const my = (t1.clientY + t2.clientY) / 2;
         const oldPpb = getPixelScale().scale;
-        const worldX = viewX + (mx - innerWidth/2) / oldPpb;
-        const worldZ = viewY + (my - innerHeight/2) / oldPpb;
+        const worldX = viewX + (mx - innerWidth / 2) / oldPpb;
+        const worldZ = viewY + (my - innerHeight / 2) / oldPpb;
         zoom = Math.max(0.1, Math.min(40, zoom * (1 + delta * 3)));
         slider.value = zoom;
         const newPpb = getPixelScale().scale;
-        viewX = worldX - (mx - innerWidth/2) / newPpb;
-        viewY = worldZ - (my - innerHeight/2) / newPpb;
+        viewX = worldX - (mx - innerWidth / 2) / newPpb;
+        viewY = worldZ - (my - innerHeight / 2) / newPpb;
         clampView();
         lastDist = dist;
         draw();
@@ -1070,17 +1070,17 @@ function editPolygon(idx) {
     isDrawing = true;
     tempPoints = JSON.parse(JSON.stringify(p.points || p.location || []));
     editorConfig = { ...p };
-    
-    // Otwórz odpowiedni panel
+
+    // OtwĂłrz odpowiedni panel
     if (['terrain', 'road', 'pin'].includes(p.category)) {
         if (editorPanel) editorPanel.style.display = 'block';
     } else {
         if (railEditorPanel) railEditorPanel.style.display = 'block';
     }
-    
+
     if (openAddMenuBtn) openAddMenuBtn.style.display = 'none';
     if (editModeBtn) editModeBtn.style.display = 'block';
-    
+
     draw();
 }
 
@@ -1117,7 +1117,7 @@ function savePolygon() {
     let minPoints = editorConfig.closePath ? 3 : 2;
     if (editorConfig.category === 'intersection' || editorConfig.category === 'pin') minPoints = 1;
     if (tempPoints.length < minPoints) {
-        alert("Za mało punktów! Minimum " + minPoints + ".");
+        alert("Za maĹ‚o punktĂłw! Minimum " + minPoints + ".");
         return;
     }
     if (editorConfig.category === 'pin' && tempPoints.length > 1) {
@@ -1129,7 +1129,7 @@ function savePolygon() {
         return;
     }
     if (editorConfig.category === 'station' && !editorConfig.name) {
-        alert('Nazwa obowiązkowa!');
+        alert('Nazwa obowiÄ…zkowa!');
         return;
     }
     if (editorConfig.category === 'intersection' && !editorConfig.name) {
@@ -1148,13 +1148,13 @@ function savePolygon() {
         poly.from = editorConfig.from;
         poly.to = editorConfig.to;
     }
-    // Pobierz autorów z checkboxów
+    // Pobierz autorĂłw z checkboxĂłw
     const checkboxes = document.querySelectorAll('#polyAuthorsList input:checked');
     poly.authors = Array.from(checkboxes).map(cb => cb.value);
     if (poly.authors.length === 0 && currentUser) poly.authors = [currentUser.nick];
-    
-    poly.author = poly.authors[0] || "Nieznany"; 
-    
+
+    poly.author = poly.authors[0] || "Nieznany";
+
     if (selectedPolygonIndex !== -1) {
         logChange("Edycja", poly);
         polygons[selectedPolygonIndex] = poly;
@@ -1182,7 +1182,7 @@ function savePolygon() {
     if (poly.to) fullCode += ' to: "' + poly.to + '",\n';
     if (poly.authors) fullCode += ' authors: ' + JSON.stringify(poly.authors) + ',\n';
     fullCode += '},';
-    
+
     codeText.value = fullCode;
     codeModal.style.display = 'block';
     window.hasUnsavedChanges = true;
@@ -1211,10 +1211,10 @@ function finalizeSave(add) {
     window.hasUnsavedChanges = false;
 }
 
-// Ostrzeżenie przed wyjściem
-window.onbeforeunload = function() {
+// OstrzeĹĽenie przed wyjĹ›ciem
+window.onbeforeunload = function () {
     if (window.hasUnsavedChanges || isDrawing) {
-        return "Masz niezapisane zmiany! Czy na pewno chcesz wyjść?";
+        return "Masz niezapisane zmiany! Czy na pewno chcesz wyjĹ›Ä‡?";
     }
 };
 
@@ -1222,13 +1222,13 @@ window.onbeforeunload = function() {
 document.getElementById('quickSaveBtn').addEventListener('click', savePolygon);
 document.getElementById('railQuickSaveBtn').addEventListener('click', savePolygon);
 
-// Obsługa Zegara Historii
+// ObsĹ‚uga Zegara Historii
 document.getElementById('history-clock').addEventListener('click', () => {
     const panel = document.getElementById('history-panel');
     panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
 });
 
-// Obsługa Porównywarki
+// ObsĹ‚uga PorĂłwnywarki
 let isComparing = false;
 const compareHandle = document.getElementById('compare-handle');
 const beforeWrapper = document.getElementById('img-before-wrapper');
@@ -1284,12 +1284,12 @@ function drawPano() {
     const w = panoCanvas.width;
     const h = panoCanvas.height;
     panoCtx.clearRect(0, 0, w, h);
-    
+
     // Prosta projekcja cylindryczna (uproszczona)
     const imgW = panoImg.width;
     const imgH = panoImg.height;
     const offset = (panoRotation % 1) * imgW;
-    
+
     panoCtx.drawImage(panoImg, offset, 0, imgW - offset, imgH, 0, 0, (imgW - offset) * (h / imgH), h);
     panoCtx.drawImage(panoImg, 0, 0, offset, imgH, (imgW - offset) * (h / imgH), 0, offset * (h / imgH), h);
 }
@@ -1483,7 +1483,7 @@ if (startDrawingBtn) {
             inPointIndex = -1;
             outPointIndex = -1;
             canvas.style.cursor = 'crosshair';
-            info.textContent = 'Klik=dodaj | klik punkt=usuń | przytrzymaj=przesuń';
+            info.textContent = 'Klik=dodaj | klik punkt=usuĹ„ | przytrzymaj=przesuĹ„';
             if (openBtn) openBtn.style.display = 'none';
             if (openRailBtn) openRailBtn.style.display = 'none';
             if (editModeBtn) editModeBtn.style.display = 'block';
@@ -1510,7 +1510,7 @@ if (railStartDrawing) {
                 }
             }
             canvas.style.cursor = 'crosshair';
-            info.textContent = 'Klik=dodaj | klik punkt=usuń | przytrzymaj=przesuń';
+            info.textContent = 'Klik=dodaj | klik punkt=usuĹ„ | przytrzymaj=przesuĹ„';
             if (openBtn) openBtn.style.display = 'none';
             if (openRailBtn) openRailBtn.style.display = 'none';
             if (editModeBtn) editModeBtn.style.display = 'block';
@@ -1525,10 +1525,10 @@ if (editModeBtn) {
     editModeBtn.addEventListener('click', () => {
         if (['terrain', 'road'].includes(editorConfig.category)) {
             editorPanel.style.display = 'block';
-            if (startDrawingBtn) startDrawingBtn.textContent = 'ZAKOŃCZ RYSOWANIE';
+            if (startDrawingBtn) startDrawingBtn.textContent = 'ZAKOĹCZ RYSOWANIE';
         } else {
             if (railEditorPanel) railEditorPanel.style.display = 'block';
-            if (railStartDrawing) railStartDrawing.textContent = 'ZAKOŃCZ RYSOWANIE';
+            if (railStartDrawing) railStartDrawing.textContent = 'ZAKOĹCZ RYSOWANIE';
         }
     });
 }
@@ -1577,11 +1577,11 @@ if (returnBtn) {
     });
 }
 
-// Obsługa NOWEGO MENU DODAWANIA
+// ObsĹ‚uga NOWEGO MENU DODAWANIA
 if (openAddMenuBtn) {
     openAddMenuBtn.addEventListener('click', () => {
         if (isDrawing || isEditing) {
-            alert('Zakończ obecne rysowanie/edycję przed dodaniem nowego elementu!');
+            alert('ZakoĹ„cz obecne rysowanie/edycjÄ™ przed dodaniem nowego elementu!');
             return;
         }
         addMenuPanel.style.display = 'block';
@@ -1625,15 +1625,15 @@ function startNewPolygon(cat) {
     isEditing = false;
     tempPoints = [];
     selectedPolygonIndex = -1;
-    
-    editorConfig = { 
-        category: cat, 
-        lineColor: cat === 'pin' ? '#ff0000' : '#00ff00', 
-        fillColor: cat === 'pin' ? '#ff000033' : '#00ff0033', 
-        name: '', 
-        opis: '', 
-        closePath: cat !== 'road' && cat !== 'rail', 
-        authors: [currentUser ? currentUser.nick : "Nieznany"] 
+
+    editorConfig = {
+        category: cat,
+        lineColor: cat === 'pin' ? '#ff0000' : '#00ff00',
+        fillColor: cat === 'pin' ? '#ff000033' : '#00ff0033',
+        name: '',
+        opis: '',
+        closePath: cat !== 'road' && cat !== 'rail',
+        authors: [currentUser ? currentUser.nick : "Nieznany"]
     };
 
     if (cat === 'road') {
@@ -1655,12 +1655,12 @@ function startNewPolygon(cat) {
         if (railCategory) railCategory.textContent = cat.toUpperCase();
         document.getElementById('rail-add-photo-btn').style.display = (cat === 'station' ? 'block' : 'none');
     }
-    
+
     canvas.style.cursor = 'crosshair';
     draw();
 }
 
-// Przyciski POWRÓT w edytorach
+// Przyciski POWRĂ“T w edytorach
 document.getElementById('back-to-menu-terrain')?.addEventListener('click', () => {
     editorPanel.style.display = 'none';
     addMenuPanel.style.display = 'block';
@@ -1670,22 +1670,22 @@ document.getElementById('back-to-menu-terrain')?.addEventListener('click', () =>
     draw();
 });
 
-// Auto-odświeżanie (co 0.5s) dla animacji ładowania
+// Auto-odĹ›wieĹĽanie (co 0.5s) dla animacji Ĺ‚adowania
 setInterval(() => {
-    // interval teraz tylko wymusza sprawdzenie, ale animationLoop i tak działa w 60fps
-    // jeśli potrzebujemy oszczędzać energię, możemy wrócić do needsRedraw, 
-    // ale dla płynnego fade-inu 60fps jest lepsze.
+    // interval teraz tylko wymusza sprawdzenie, ale animationLoop i tak dziaĹ‚a w 60fps
+    // jeĹ›li potrzebujemy oszczÄ™dzaÄ‡ energiÄ™, moĹĽemy wrĂłciÄ‡ do needsRedraw, 
+    // ale dla pĹ‚ynnego fade-inu 60fps jest lepsze.
 }, 500);
 
-// Przyciski DODAJ ZDJĘCIE
+// Przyciski DODAJ ZDJÄCIE
 document.getElementById('poly-add-photo-btn')?.addEventListener('click', () => {
-    alert('Funkcja dodawania zdjęć (wkrótce)');
+    alert('Funkcja dodawania zdjÄ™Ä‡ (wkrĂłtce)');
 });
 document.getElementById('rail-add-photo-btn')?.addEventListener('click', () => {
-    alert('Funkcja dodawania zdjęć (wkrótce)');
+    alert('Funkcja dodawania zdjÄ™Ä‡ (wkrĂłtce)');
 });
 
-// Przełączniki widoczności
+// PrzeĹ‚Ä…czniki widocznoĹ›ci
 document.querySelectorAll('#category-toggle .toggle-btn').forEach(btn => {
     btn.addEventListener('click', () => {
         if (btn.dataset.cat) {
@@ -1702,12 +1702,12 @@ document.querySelectorAll('#category-toggle .toggle-btn').forEach(btn => {
 function editPolygon(idx) {
     const p = polygons[idx];
     if (!p) return;
-    
+
     selectedPolygonIndex = idx;
     isDrawing = true;
     isEditing = true;
     tempPoints = JSON.parse(JSON.stringify(p.points || p.location || []));
-    
+
     editorConfig = { ...p, authors: p.authors || (p.author ? [p.author] : []) };
 
     if (['terrain', 'road', 'pin'].includes(p.category)) {
@@ -1717,7 +1717,7 @@ function editPolygon(idx) {
         document.getElementById('polyDesc').value = p.opis || '';
         document.getElementById('lineColor').value = p.lineColor || '#00ff00';
         if (document.getElementById('fillColor')) {
-            document.getElementById('fillColor').value = p.fillColor ? p.fillColor.substring(0,7) : '#00ff00';
+            document.getElementById('fillColor').value = p.fillColor ? p.fillColor.substring(0, 7) : '#00ff00';
         }
         if (document.getElementById('closePathToggle')) {
             document.getElementById('closePathToggle').checked = p.closePath;
@@ -1752,15 +1752,15 @@ function editPolygon(idx) {
 
 function deletePolygon(idx) {
     if (idx === -1) return;
-    if (!confirm('Czy na pewno chcesz usunąć ten element?')) return;
-    
+    if (!confirm('Czy na pewno chcesz usunÄ…Ä‡ ten element?')) return;
+
     const p = polygons[idx];
     logChange('USUWANIE', p);
     polygons.splice(idx, 1);
-    
+
     finalizeSave(true);
     closePolyInfo();
-    alert('USUNIĘTO!');
+    alert('USUNIÄTO!');
 }
 
 if (document.getElementById('edit-poly-btn')) {
@@ -1793,7 +1793,7 @@ function animationLoop() {
     drawTiles();
     drawPolygons();
     drawTempPolygon();
-    
+
     if (isDrawing && editorConfig.category === 'rail') {
         ctx.save();
         ctx.scale(pixelRatio, pixelRatio);
@@ -1825,9 +1825,77 @@ function animationLoop() {
 requestAnimationFrame(animationLoop);
 
 document.getElementById('push-changes-btn').addEventListener('click', () => {
-    alert('Wprowadzono zmiany do historii i pamięci. Aby zapisać na stałe, skopiuj kod z modala (po naciśnięciu ZAPISZ w edytorze) do plików w folderze poligons/');
+    alert('Wprowadzono zmiany do historii i pamiÄ™ci. Aby zapisaÄ‡ na staĹ‚e, skopiuj kod z modala (po naciĹ›niÄ™ciu ZAPISZ w edytorze) do plikĂłw w folderze poligons/');
     window.onbeforeunload = null;
 });
 
 canvas.style.cursor = 'grab';
+
 draw();
+
+/* ==============================================================
+   INTEGRACJA Z BACKENDEM (RENDER)
+   ============================================================== */
+
+const SERVER_URL = "https://mapa-backend-mtbw.onrender.com";
+
+function updateServerStatus() {
+    const statusEl = document.getElementById('server-status');
+    if (!statusEl) return;
+    
+    statusEl.className = 'loading';
+    fetch(SERVER_URL + "/status?t=" + Date.now())
+        .then(response => {
+            if (response.ok) {
+                statusEl.className = 'online';
+                statusEl.title = "Serwer gotowy do zapisu";
+            } else {
+                statusEl.className = '';
+                statusEl.title = "Serwer offline/Błąd";
+            }
+        })
+        .catch(() => {
+            statusEl.className = '';
+            statusEl.title = "Serwer offline";
+        });
+}
+
+updateServerStatus();
+setInterval(updateServerStatus, 45000);
+
+document.getElementById('server-save-btn').addEventListener('click', () => {
+    const pass = prompt("Podaj hasło grupy, aby zatwierdzić zmiany na GitHubie:");
+    if (!pass) return;
+
+    const btn = document.getElementById('server-save-btn');
+    const originalText = btn.textContent;
+    
+    btn.textContent = "ŁĄCZENIE...";
+    btn.disabled = true;
+
+    fetch(SERVER_URL + "/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          password: pass,
+          content: document.getElementById('code-text').value,
+          message: "Aktualizacja mapy przez panel admina"
+        })
+    })
+    .then(async response => {
+        const txt = await response.text();
+        if (response.ok) {
+            alert("SUKCES: " + txt);
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            alert("BŁĄD: " + txt);
+        }
+    })
+    .catch(e => {
+        alert("Błąd połączenia z serwerem: " + e.message);
+    })
+    .finally(() => {
+        btn.textContent = originalText;
+        btn.disabled = false;
+    });
+});
