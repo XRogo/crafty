@@ -217,16 +217,18 @@
         }
 
         #server-status-text {
-            color: #555;
+            color: #aaa;
             font-weight: bold;
             font-size: 13px;
             text-transform: uppercase;
-            text-shadow: 0 0 5px #000;
+            background: rgba(0,0,0,0.5);
+            padding: 4px 8px;
+            border-radius: 4px;
         }
 
-        #server-status-text.online { color: #0f0; text-shadow: 0 0 10px #0f0; }
-        #server-status-text.loading { color: #ff0; animation: server-blink 1s infinite; }
-        #server-status-text.error { color: #f00; text-shadow: 0 0 10px #f00; }
+        #server-status-text.online { color: #0f0; border: 1px solid #0f0; box-shadow: 0 0 10px rgba(0,255,0,0.3); }
+        #server-status-text.loading { color: #ff0; border: 1px solid #ff0; animation: server-blink 1s infinite; }
+        #server-status-text.error { color: #f55; border: 1px solid #f00; }
 
         #submit-changes-btn {
             display: none;
@@ -361,10 +363,6 @@
             <img id="user-head" class="mc-head" src="" style="margin:0;">
             <span id="user-nick">Zaloguj</span>
         </div>
-
-        <button id="push-changes-btn" class="toggle-btn"
-            style="position: absolute; top: 15px; right: 15px; height: 46px; background: #000; color: #0f0; border: 2px solid #0f0; box-shadow: 0 0 15px #0f0;">WPROWADŹ
-            ZMIANY</button>
 
         <div id="area-info">
             Pole: <span id="area-val">0</span> m²<br>

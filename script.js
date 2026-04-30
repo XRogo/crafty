@@ -24,6 +24,13 @@ let history = [];
 let selectedPolygonIndex = -1;
 let isEditing = false;
 let needsRedraw = true;
+window.hasUnsavedChanges = false;
+
+function notifyChange() {
+    window.hasUnsavedChanges = true;
+    const btn = document.getElementById('submit-changes-btn');
+    if (btn) btn.style.display = 'block';
+}
 
 function loadPolygonsFromData() {
     const processData = (data) => {
@@ -1185,7 +1192,7 @@ function savePolygon() {
 
     codeText.value = fullCode;
     codeModal.style.display = 'block';
-    window.hasUnsavedChanges = true;
+    notifyChange();
     window.tempPoly = poly;
     draw();
 }
@@ -1757,6 +1764,7 @@ function deletePolygon(idx) {
     const p = polygons[idx];
     logChange('USUWANIE', p);
     polygons.splice(idx, 1);
+    notifyChange();
 
     finalizeSave(true);
     closePolyInfo();
@@ -1824,10 +1832,8 @@ function animationLoop() {
 
 requestAnimationFrame(animationLoop);
 
-document.getElementById('push-changes-btn').addEventListener('click', () => {
-    alert('Wprowadzono zmiany do historii i pamiÄ™ci. Aby zapisaÄ‡ na staĹ‚e, skopiuj kod z modala (po naciĹ›niÄ™ciu ZAPISZ w edytorze) do plikĂłw w folderze poligons/');
-    window.onbeforeunload = null;
-});
+window.onbeforeunload = null;
+;
 
 canvas.style.cursor = 'grab';
 
@@ -1840,36 +1846,38 @@ draw();
 const SERVER_URL = "https://mapa-backend-mtbw.onrender.com";
 
 function updateServerStatus() {
-    const statusEl = document.getElementById('server-status');
-    if (!statusEl) return;
-    
-    statusEl.className = 'loading';
+    const statusText = document.getElementById('server-status-text');
+    if (!statusText) return;
+
+    statusText.className = 'loading';
+    statusText.textContent = "Zapis: Wczytywanie...";
+
     fetch(SERVER_URL + "/status?t=" + Date.now())
         .then(response => {
             if (response.ok) {
-                statusEl.className = 'online';
-                statusEl.title = "Serwer gotowy do zapisu";
+                statusText.className = 'online';
+                statusText.textContent = "Zapis: Aktywny";
             } else {
-                statusEl.className = '';
-                statusEl.title = "Serwer offline/Błąd";
+                statusText.className = 'error';
+                statusText.textContent = "Zapis: Błąd";
             }
         })
         .catch(() => {
-            statusEl.className = '';
-            statusEl.title = "Serwer offline";
+            statusText.className = 'error';
+            statusText.textContent = "Zapis: Offline";
         });
 }
 
 updateServerStatus();
 setInterval(updateServerStatus, 45000);
 
-document.getElementById('server-save-btn').addEventListener('click', () => {
+document.getElementById('submit-changes-btn').addEventListener('click', () => {
     const pass = prompt("Podaj hasło grupy, aby zatwierdzić zmiany na GitHubie:");
     if (!pass) return;
 
-    const btn = document.getElementById('server-save-btn');
+    const btn = document.getElementById('submit-changes-btn');
     const originalText = btn.textContent;
-    
+
     btn.textContent = "ŁĄCZENIE...";
     btn.disabled = true;
 
@@ -1877,25 +1885,27 @@ document.getElementById('server-save-btn').addEventListener('click', () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          password: pass,
-          content: document.getElementById('code-text').value,
-          message: "Aktualizacja mapy przez panel admina"
+            password: pass,
+            content: document.getElementById('code-text').value,
+            message: "Aktualizacja mapy przez panel admina"
         })
     })
-    .then(async response => {
-        const txt = await response.text();
-        if (response.ok) {
-            alert("SUKCES: " + txt);
-            setTimeout(() => location.reload(), 1500);
-        } else {
-            alert("BŁĄD: " + txt);
-        }
-    })
-    .catch(e => {
-        alert("Błąd połączenia z serwerem: " + e.message);
-    })
-    .finally(() => {
-        btn.textContent = originalText;
-        btn.disabled = false;
-    });
+        .then(async response => {
+            const txt = await response.text();
+            if (response.ok) {
+                alert("SUKCES: " + txt);
+                window.hasUnsavedChanges = false;
+                btn.style.display = 'none';
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                alert("BŁĄD: " + txt);
+            }
+        })
+        .catch(e => {
+            alert("Błąd połączenia z serwerem: " + e.message);
+        })
+        .finally(() => {
+            btn.textContent = originalText;
+            btn.disabled = false;
+        });
 });
