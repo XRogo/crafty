@@ -1,4 +1,4 @@
-﻿/* ==============================================================
+/* ==============================================================
    MAPA MINECRAFT v21 â€“ FINALNA WERSJA â€“ WSZYSTKO DZIAĹA!
    ============================================================== */
 
@@ -1833,7 +1833,6 @@ function animationLoop() {
 requestAnimationFrame(animationLoop);
 
 window.onbeforeunload = null;
-;
 
 canvas.style.cursor = 'grab';
 
@@ -1887,6 +1886,7 @@ document.getElementById('submit-changes-btn').addEventListener('click', () => {
         body: JSON.stringify({
             password: pass,
             content: document.getElementById('code-text').value,
+            authors: window.tempPoly ? window.tempPoly.authors : [],
             message: "Aktualizacja mapy przez panel admina"
         })
     })
