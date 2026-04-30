@@ -347,27 +347,3 @@ window.registerPolygons([
     //     category: 1
     // }
 ]);
-
-window.registerPolygons([
-{
- points: [[152,626],[572,748]],
- lineColor: "#ffffff",
- fillColor: "transparent",
- closePath: false,
- name: "ttttt",
- category: "road",
- authors: ["Mikusierro"],
-},
-]);
-
-window.registerPolygons([
-{
- points: [[747,516],[822,588],[879,522]],
- lineColor: "#00ff00",
- fillColor: "#00ff0033",
- closePath: true,
- name: "tttt",
- category: "terrain",
- authors: ["Neressia"],
-},
-]);
