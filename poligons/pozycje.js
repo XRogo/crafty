@@ -346,13 +346,13 @@ window.registerPolygons([
     //     name: '',
     //     category: 1
     // },
-{
- points: [[262,434],[149,432],[119,454],[95,465],[84,483],[84,503],[86,528],[103,564],[131,605],[168,625],[229,626],[262,604],[273,550],[284,453]],
- lineColor: "rgba(44, 140, 242, 1)",
- fillColor: "rgba(44, 140, 242, 0.2)",
- closePath: true,
- name: "Podwodne miasto dasikora.",
- category: "terrain",
- authors: ["Dasikor","OzzI"],
-},
+    {
+        points: [[262, 434], [149, 432], [119, 454], [95, 465], [84, 483], [84, 503], [86, 528], [103, 564], [131, 605], [168, 625], [229, 626], [262, 604], [273, 550], [284, 453]],
+        lineColor: "rgba(44, 140, 242, 1)",
+        fillColor: "rgba(44, 140, 242, 0.2)",
+        closePath: true,
+        name: "Podwodne miasto dasikora.",
+        category: "terrain",
+        authors: ["Dasikor", "OzzI"],
+    },
 ]);

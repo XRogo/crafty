@@ -221,14 +221,27 @@
             font-weight: bold;
             font-size: 13px;
             text-transform: uppercase;
-            background: rgba(0,0,0,0.5);
+            background: rgba(0, 0, 0, 0.5);
             padding: 4px 8px;
             border-radius: 4px;
         }
 
-        #server-status-text.online { color: #0f0; border: 1px solid #0f0; box-shadow: 0 0 10px rgba(0,255,0,0.3); }
-        #server-status-text.loading { color: #ff0; border: 1px solid #ff0; animation: server-blink 1s infinite; }
-        #server-status-text.error { color: #f55; border: 1px solid #f00; }
+        #server-status-text.online {
+            color: #0f0;
+            border: 1px solid #0f0;
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
+        }
+
+        #server-status-text.loading {
+            color: #ff0;
+            border: 1px solid #ff0;
+            animation: server-blink 1s infinite;
+        }
+
+        #server-status-text.error {
+            color: #f55;
+            border: 1px solid #f00;
+        }
 
         #submit-changes-btn {
             display: none;
@@ -244,8 +257,15 @@
             transition: transform 0.2s;
         }
 
-        #submit-changes-btn:hover { transform: scale(1.05); }
-        @keyframes server-blink { 50% { opacity: 0.3; } }
+        #submit-changes-btn:hover {
+            transform: scale(1.05);
+        }
+
+        @keyframes server-blink {
+            50% {
+                opacity: 0.3;
+            }
+        }
 
         .special-modal {
             position: fixed;
@@ -297,7 +317,8 @@
 
         .pano-face {
             position: absolute;
-            width: 1026px; /* Nieco więcej niż 1024 aby uniknąć szpar */
+            width: 1026px;
+            /* Nieco więcej niż 1024 aby uniknąć szpar */
             height: 1026px;
             left: 50%;
             top: 50%;
@@ -310,12 +331,29 @@
         }
 
         /* Pozycjonowanie ścian sześcianu - Nowy, stabilniejszy układ */
-        .face-front  { transform: rotateY(0deg) translateZ(-512px); }
-        .face-right  { transform: rotateY(-90deg) translateZ(-512px); }
-        .face-back   { transform: rotateY(180deg) translateZ(-512px); }
-        .face-left   { transform: rotateY(90deg) translateZ(-512px); }
-        .face-top    { transform: rotateX(-90deg) translateZ(-512px); }
-        .face-bottom { transform: rotateX(90deg) translateZ(-512px); }
+        .face-front {
+            transform: rotateY(0deg) translateZ(-512px);
+        }
+
+        .face-right {
+            transform: rotateY(-90deg) translateZ(-512px);
+        }
+
+        .face-back {
+            transform: rotateY(180deg) translateZ(-512px);
+        }
+
+        .face-left {
+            transform: rotateY(90deg) translateZ(-512px);
+        }
+
+        .face-top {
+            transform: rotateX(-90deg) translateZ(-512px);
+        }
+
+        .face-bottom {
+            transform: rotateX(90deg) translateZ(-512px);
+        }
 
         #login-modal {
             position: fixed;
@@ -399,9 +437,12 @@
                     <div style="display:flex; align-items:center; gap:10px;">
                         <h2 id="info-poly-name" style="font-size: 18px; margin-bottom: 5px;">Nazwa</h2>
                         <div style="display:flex; gap:5px; align-items:center;">
-                            <span id="info-poly-pano-icon" style="display:none; font-size:20px; cursor:pointer;" title="Dostępna panorama 360">🎞️</span>
-                            <span id="info-poly-photo-icon" style="display:none; font-size:20px;" title="Dostępne zdjęcia">📸</span>
-                            <span id="info-poly-hint" style="display:none; font-size:16px; color:#0af; animation: blinker 1.5s linear infinite;">🔍</span>
+                            <span id="info-poly-pano-icon" style="display:none; font-size:20px; cursor:pointer;"
+                                title="Dostępna panorama 360">🎞️</span>
+                            <span id="info-poly-photo-icon" style="display:none; font-size:20px;"
+                                title="Dostępne zdjęcia">📸</span>
+                            <span id="info-poly-hint"
+                                style="display:none; font-size:16px; color:#0af; animation: blinker 1.5s linear infinite;">🔍</span>
                         </div>
                     </div>
                     <div id="info-poly-authors" style="display:flex; margin-bottom: 5px; padding-left: 10px;"></div>
@@ -410,8 +451,10 @@
                     <p id="info-poly-desc" style="font-size: 12px; color: #ccc;">Opis...</p>
                 </div>
                 <div style="display:flex; gap: 10px; align-items:center;">
-                    <button id="info-poly-pano-btn" class="toggle-btn" style="display:none; background:#0af; box-shadow: 0 0 10px #0af;">🎞️ PANORAMA</button>
-                    <button id="info-poly-photo-btn" class="toggle-btn" style="display:none; background:#f0a; box-shadow: 0 0 10px #f0a;">📸 ZDJĘCIA</button>
+                    <button id="info-poly-pano-btn" class="toggle-btn"
+                        style="display:none; background:#0af; box-shadow: 0 0 10px #0af;">🎞️ PANORAMA</button>
+                    <button id="info-poly-photo-btn" class="toggle-btn"
+                        style="display:none; background:#f0a; box-shadow: 0 0 10px #f0a;">📸 ZDJĘCIA</button>
                     <button id="edit-poly-btn" class="toggle-btn">EDYTUJ</button>
                     <button id="close-info-btn" class="cat-btn"
                         style="border-radius: 50%; width: 30px; height: 30px; padding: 0;">X</button>
@@ -425,7 +468,8 @@
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
                 <h3>EDYTOR TERENU</h3>
                 <div style="display:flex; gap:5px;">
-                    <button id="back-to-menu-terrain" class="cat-btn" style="padding: 2px 8px; font-size: 12px;">POWRÓT</button>
+                    <button id="back-to-menu-terrain" class="cat-btn"
+                        style="padding: 2px 8px; font-size: 12px;">POWRÓT</button>
                     <button id="close-editor"
                         style="background:none; border:none; color:#0f0; font-size:24px; cursor:pointer;">X</button>
                 </div>
@@ -527,7 +571,8 @@
             <div style="display:flex; justify-content:space-around; margin-top:15px;">
                 <button id="copy-btn" class="toggle-btn">KOPIUJ</button>
                 <button id="close-modal" class="toggle-btn">ZAMKNIJ / GOTOWE</button>
-                <button id="server-save-btn" class="toggle-btn" style="background:#ff00ff; box-shadow: 0 0 15px #ff00ff;">WPROWADŹ ZMIANĘ</button>
+                <button id="server-save-btn" class="toggle-btn"
+                    style="background:#ff00ff; box-shadow: 0 0 15px #ff00ff;">WPROWADŹ ZMIANĘ</button>
             </div>
         </div>
 
@@ -588,9 +633,11 @@
 
         <!-- PANORAMA 360 VIEWER -->
         <div id="pano-viewer-modal" class="special-modal" style="display:none; flex-direction:column;">
-            <div style="padding: 10px; display:flex; justify-content:space-between; align-items:center; background:#111; border-bottom:1px solid #0f0;">
+            <div
+                style="padding: 10px; display:flex; justify-content:space-between; align-items:center; background:#111; border-bottom:1px solid #0f0;">
                 <h2 id="pano-title">Panorama 360</h2>
-                <button onclick="document.getElementById('pano-viewer-modal').style.display='none'" class="toggle-btn" style="background:#f00; box-shadow:none; padding: 5px 15px;">ZAMKNIJ X</button>
+                <button onclick="document.getElementById('pano-viewer-modal').style.display='none'" class="toggle-btn"
+                    style="background:#f00; box-shadow:none; padding: 5px 15px;">ZAMKNIJ X</button>
             </div>
             <div style="flex:1; position:relative; overflow:hidden; background:#000;">
                 <div id="pano-cube-container">
@@ -603,8 +650,10 @@
                         <div class="pano-face face-bottom"></div>
                     </div>
                 </div>
-                <div id="pano-controls" style="position:absolute; bottom:20px; left:50%; transform:translateX(-50%); display:flex; gap:15px; background:rgba(0,0,0,0.5); padding:10px; border-radius:15px; z-index:10;">
-                    <span style="color:#fff; font-size:12px; align-self:center;">Przeciągnij myszką, aby obrócić | Scrolluj, aby zoomować</span>
+                <div id="pano-controls"
+                    style="position:absolute; bottom:20px; left:50%; transform:translateX(-50%); display:flex; gap:15px; background:rgba(0,0,0,0.5); padding:10px; border-radius:15px; z-index:10;">
+                    <span style="color:#fff; font-size:12px; align-self:center;">Przeciągnij myszką, aby obrócić |
+                        Scrolluj, aby zoomować</span>
                 </div>
             </div>
         </div>
@@ -614,7 +663,7 @@
         // 1. Definicja registerPolygons MUSI być pierwsza
         window.registerPolygons = function (data) {
             if (!window.extraPolygons) window.extraPolygons = [];
-            
+
             // Jeśli mamy ustawionego autora w kontekście ładowania, przypisz go
             if (window.currentLoadingAuthor) {
                 data.forEach(poly => {
@@ -624,7 +673,7 @@
                     }
                 });
             }
-            
+
             window.extraPolygons.push(...data);
             if (window.loadPolygonsFromData) window.loadPolygonsFromData();
         };
@@ -634,7 +683,7 @@
 
     <script src="pleyer.js"></script>
     <script src="poligons/pozycje.js"></script>
-    
+
     <script>
         // 2. Ładowanie plików poligonów z przypisaniem autorów
         function loadPlayerPolygons() {
@@ -658,15 +707,15 @@
                 }
             });
         }
-        
+
         // Ponieważ pliki .js w poligons/ są statyczne i nie biorą parametrów, 
         // a my nie chcemy zmieniać każdego pliku, użyjemy małego triku:
         // Wczytamy pliki po kolei.
-        
+
         async function loadAllPolygons() {
             // Publiczne
             await loadScript('poligons/public.js', null);
-            
+
             // Gracze
             if (window.playersData) {
                 for (const p of window.playersData) {
@@ -699,6 +748,7 @@
 
     <script src="script.js"></script>
 </body>
+
 </html>
 
 </html>

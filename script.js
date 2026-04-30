@@ -216,7 +216,6 @@ let viewX = 0, viewY = 0;
 let pixelRatio = 1;
 const cache = new Map();
 let tileQueue = [];
-let isTileLoading = false;
 let isPanning = false;
 let panStart = { x: 0, y: 0, viewX: 0, viewY: 0 };
 let lastX = 0, lastY = 0;
@@ -297,15 +296,17 @@ function loadTile(tx, ty, level) {
 }
 
 async function processTileQueue() {
-    if (isTileLoading || tileQueue.length === 0) return;
-    isTileLoading = true;
-    const { tx, ty, level, key } = tileQueue.shift();
+    if (tileQueue.length === 0) return;
+    
+    const MAX_CONCURRENT = 8;
+    const toLoad = tileQueue.splice(0, MAX_CONCURRENT);
+    
+    await Promise.all(toLoad.map(async ({ tx, ty, level, key }) => {
+        if (!cache.has(key) || cache.get(key) instanceof Promise) {
+            await loadTile(tx, ty, level);
+        }
+    }));
 
-    if (!cache.has(key) || cache.get(key) instanceof Promise) {
-        await loadTile(tx, ty, level);
-    }
-
-    isTileLoading = false;
     processTileQueue();
 }
 
@@ -1130,11 +1131,7 @@ function savePolygon() {
     if (editorConfig.category === 'pin' && tempPoints.length > 1) {
         tempPoints = [tempPoints[0]];
     }
-    const usedNames = new Set(polygons.map(p => p.name).filter(n => n));
-    if (editorConfig.name && usedNames.has(editorConfig.name)) {
-        alert('Nazwa istnieje!');
-        return;
-    }
+    // Usunieto blokade nazw
     if (editorConfig.category === 'station' && !editorConfig.name) {
         alert('Nazwa obowiÄ…zkowa!');
         return;
@@ -1832,7 +1829,6 @@ function animationLoop() {
 
 requestAnimationFrame(animationLoop);
 
-window.onbeforeunload = null;
 
 canvas.style.cursor = 'grab';
 
@@ -1880,15 +1876,26 @@ document.getElementById('submit-changes-btn').addEventListener('click', () => {
     btn.textContent = "ŁĄCZENIE...";
     btn.disabled = true;
 
+    // Przygotowanie danych
+    const author = currentUser ? currentUser.nick : null;
+    let payload = {
+        password: pass,
+        message: "Aktualizacja mapy"
+    };
+
+    if (author) {
+        payload.authors = [author];
+        payload.allPolys = polygons.filter(p => p.authors && p.authors.includes(author));
+        payload.mode = "overwrite";
+    } else {
+        payload.content = document.getElementById('code-text').value;
+        payload.mode = "append";
+    }
+
     fetch(SERVER_URL + "/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            password: pass,
-            content: document.getElementById('code-text').value,
-            authors: window.tempPoly ? window.tempPoly.authors : [],
-            message: "Aktualizacja mapy przez panel admina"
-        })
+        body: JSON.stringify(payload)
     })
         .then(async response => {
             const txt = await response.text();
