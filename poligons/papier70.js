@@ -7,15 +7,13 @@
         closePath: true,
         name: "Farma papiera",
         category: 1,
-        authors: ["papieraka"]
     },
     {
         points: [[269, 60], [283, 111], [365, 121], [435, 109], [445, 32], [392, 0], [320, 7]],
         lineColor: "#02d2ed",
         fillColor: "#02d2ed33",
         closePath: true,
-        name: "Papier?",
+        name: "Papier",
         category: 1,
-        authors: ["papierek"]
     },
 ]);

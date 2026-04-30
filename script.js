@@ -25,11 +25,35 @@ let selectedPolygonIndex = -1;
 let isEditing = false;
 let needsRedraw = true;
 window.hasUnsavedChanges = false;
+window.dirtyAuthors = new Set();
 
-function notifyChange() {
+function notifyChange(authors) {
     window.hasUnsavedChanges = true;
+    if (authors) {
+        authors.forEach(a => window.dirtyAuthors.add(a));
+    }
     const btn = document.getElementById('submit-changes-btn');
     if (btn) btn.style.display = 'block';
+}
+
+function formatPolygon(p) {
+    let s = '    {\n';
+    if (p.points) s += `        points: ${JSON.stringify(p.points)},\n`;
+    if (p.location) s += `        location: ${JSON.stringify(p.location)},\n`;
+    s += `        lineColor: "${p.lineColor}",\n`;
+    s += `        fillColor: "${p.fillColor}",\n`;
+    s += `        closePath: ${p.closePath},\n`;
+    if (p.name) s += `        name: "${p.name.replace(/"/g, '\\"')}",\n`;
+    if (p.opis) s += `        opis: "${p.opis.replace(/"/g, '\\"')}",\n`;
+    s += `        category: "${p.category}",\n`;
+    if (p.temporary) s += `        temporary: true,\n`;
+    if (p.in) s += `        in: ${JSON.stringify(p.in)},\n`;
+    if (p.out) s += `        out: ${JSON.stringify(p.out)},\n`;
+    if (p.from) s += `        from: "${p.from}",\n`;
+    if (p.to) s += `        to: "${p.to}",\n`;
+    if (p.authors) s += `        authors: ${JSON.stringify(p.authors)}\n`;
+    s += '    },';
+    return s;
 }
 
 function loadPolygonsFromData() {
@@ -1187,9 +1211,9 @@ function savePolygon() {
     if (poly.authors) fullCode += ' authors: ' + JSON.stringify(poly.authors) + ',\n';
     fullCode += '},';
 
-    codeText.value = fullCode;
+    codeText.value = formatPolygon(poly);
     codeModal.style.display = 'block';
-    notifyChange();
+    notifyChange(poly.authors);
     window.tempPoly = poly;
     draw();
 }
@@ -1760,8 +1784,8 @@ function deletePolygon(idx) {
 
     const p = polygons[idx];
     logChange('USUWANIE', p);
+    notifyChange(p.authors || ["Nieznany"]);
     polygons.splice(idx, 1);
-    notifyChange();
 
     finalizeSave(true);
     closePolyInfo();
@@ -1872,47 +1896,72 @@ document.getElementById('submit-changes-btn').addEventListener('click', () => {
 
     const btn = document.getElementById('submit-changes-btn');
     const originalText = btn.textContent;
-
+    
     btn.textContent = "ŁĄCZENIE...";
     btn.disabled = true;
 
-    // Przygotowanie danych
-    const author = currentUser ? currentUser.nick : null;
-    let payload = {
-        password: pass,
-        message: "Aktualizacja mapy"
-    };
+    // Przygotowanie paczki zmian dla wszystkich dotkniętych autorów
+    const batch = [];
+    const authorsToSync = window.dirtyAuthors.size > 0 ? Array.from(window.dirtyAuthors) : (currentUser ? [currentUser.nick] : []);
 
-    if (author) {
-        payload.authors = [author];
-        payload.allPolys = polygons.filter(p => p.authors && p.authors.includes(author));
-        payload.mode = "overwrite";
-    } else {
-        payload.content = document.getElementById('code-text').value;
-        payload.mode = "append";
-    }
+    authorsToSync.forEach(auth => {
+        const myPolys = polygons.filter(p => p.authors && p.authors.includes(auth));
+        const formattedList = myPolys.map(p => formatPolygon(p)).join('\n');
+        batch.push({
+            author: auth,
+            content: `window.registerPolygons([\n${formattedList}\n]);`
+        });
+    });
 
-    fetch(SERVER_URL + "/save", {
+    fetch(SERVER_URL + "/save-batch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({
+            password: pass,
+            batch: batch,
+            message: "Aktualizacja mapy - zmiany zbiorcze"
+        })
     })
-        .then(async response => {
-            const txt = await response.text();
-            if (response.ok) {
-                alert("SUKCES: " + txt);
-                window.hasUnsavedChanges = false;
-                btn.style.display = 'none';
-                setTimeout(() => location.reload(), 1000);
-            } else {
-                alert("BŁĄD: " + txt);
-            }
-        })
-        .catch(e => {
-            alert("Błąd połączenia z serwerem: " + e.message);
-        })
-        .finally(() => {
-            btn.textContent = originalText;
-            btn.disabled = false;
-        });
+    .then(async response => {
+        const txt = await response.text();
+        if (response.ok) {
+            alert("SUKCES: Zmiany zostały wysłane do GitHuba.\n\nStrona mapy zaktualizuje się automatycznie za około 1-2 minuty (po deployu GitHuba).");
+            window.hasUnsavedChanges = false;
+            window.dirtyAuthors.clear();
+            btn.style.display = 'none';
+            checkGitHubDeployStatus();
+        } else {
+            alert("BŁĄD: " + txt);
+        }
+    })
+    .catch(e => {
+        alert("Błąd połączenia z serwerem: " + e.message);
+    })
+    .finally(() => {
+        btn.textContent = originalText;
+        btn.disabled = false;
+    });
 });
+
+function checkGitHubDeployStatus() {
+    const statusText = document.getElementById('server-status-text');
+    if (!statusText) return;
+
+    statusText.textContent = "Zapis: Deploy (Git)...";
+    statusText.className = 'loading';
+
+    let attempts = 0;
+    const interval = setInterval(() => {
+        attempts++;
+        if (attempts > 20) { 
+            clearInterval(interval);
+            updateServerStatus();
+            return;
+        }
+        
+        fetch(window.location.href, { method: 'HEAD', cache: 'no-cache' })
+            .then(res => {
+                statusText.textContent = "Zapis: GitHub Sync...";
+            });
+    }, 30000);
+}
