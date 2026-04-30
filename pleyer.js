@@ -45,7 +45,7 @@ window.playersData = [
         poligon: "poligons/zetie.js"
     },
     {
-        nick: "Agna",
+        nick: "Agna28",
         icon: "head/agna.png",
         poligon: "poligons/agna.js"
     },
@@ -65,7 +65,7 @@ window.playersData = [
         poligon: "poligons/dasikor.js"
     },
     {
-        nick: "OzzI",
+        nick: "K_O_Ozzy",
         icon: "head/ozzi.png",
         poligon: "poligons/ozzi.js"
     },
@@ -75,7 +75,7 @@ window.playersData = [
         poligon: "poligons/yakuberek.js"
     },
     {
-        nick: "Renger",
+        nick: "TheBlackRanger",
         icon: "head/renger.png",
         poligon: "poligons/renger.js"
     },
@@ -85,7 +85,7 @@ window.playersData = [
         poligon: "poligons/victors.js"
     },
     {
-        nick: "Piter",
+        nick: "PiterPanMis",
         icon: "head/piter.png",
         poligon: "poligons/piter.js"
     }
