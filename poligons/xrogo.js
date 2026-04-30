@@ -39,4 +39,13 @@ window.registerPolygons([
  category: "terrain",
  authors: ["XRogo"],
 },
+{
+ points: [[269,60],[283,111],[365,121],[435,109],[445,32],[392,0],[320,7]],
+ lineColor: "#02d2ed",
+ fillColor: "#02d2ed33",
+ closePath: true,
+ name: "Papier",
+ category: "terrain",
+ authors: ["XRogo"],
+},
 ]);
