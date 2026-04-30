@@ -359,3 +359,15 @@ window.registerPolygons([
  authors: ["Mikusierro"],
 },
 ]);
+
+window.registerPolygons([
+{
+ points: [[747,516],[822,588],[879,522]],
+ lineColor: "#00ff00",
+ fillColor: "#00ff0033",
+ closePath: true,
+ name: "tttt",
+ category: "terrain",
+ authors: ["Neressia"],
+},
+]);
