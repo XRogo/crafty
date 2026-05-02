@@ -56,6 +56,8 @@ function formatPolygon(p) {
     if (p.out) s += `        out: ${JSON.stringify(p.out)},\n`;
     if (p.from) s += `        from: "${p.from}",\n`;
     if (p.to) s += `        to: "${p.to}",\n`;
+    if (p.panorama) s += `        panorama: ${JSON.stringify(p.panorama)},\n`;
+    if (p.photo) s += `        photo: ${JSON.stringify(p.photo)},\n`;
     if (p.authors) s += `        authors: ${JSON.stringify(p.authors)}\n`;
     s += '    },';
     return s;
