@@ -493,9 +493,6 @@ function drawTiles() {
 function drawGrid() {
     if (!showGrid && !selectingTiles) return;
     
-    const level = getLevel();
-    if (level.folder !== 2) return; // Grid tylko na zoomie 256
-    
     const bpt = 256;
     const { scale: ppb } = getPixelScale();
     const cx = innerWidth / 2, cy = innerHeight / 2;
@@ -507,7 +504,7 @@ function drawGrid() {
     const endTy = Math.ceil(bounds.maxY / bpt);
 
     ctx.save();
-    ctx.font = "14px Arial";
+    ctx.font = `bold ${Math.max(10, 14 * ppb)}px Arial`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
 
@@ -521,17 +518,19 @@ function drawGrid() {
 
             // Zaznaczenie wybranego kafelka
             if (selectedTiles.has(`${tx}_${ty}`)) {
-                ctx.fillStyle = "rgba(255, 255, 0, 0.3)";
+                ctx.fillStyle = "rgba(255, 255, 0, 0.4)";
                 ctx.fillRect(rx, ry, size, size);
             }
 
             if (showGrid) {
-                ctx.strokeStyle = "rgba(0, 255, 0, 0.3)";
-                ctx.lineWidth = 1;
+                ctx.strokeStyle = "rgba(0, 255, 0, 0.6)";
+                ctx.lineWidth = 3;
                 ctx.strokeRect(rx, ry, size, size);
                 
-                ctx.fillStyle = "rgba(0, 255, 0, 0.8)";
-                ctx.fillText(`${tx}, ${ty}`, rx + size/2, ry + size/2);
+                if (size > 40) { // Tylko jeśli kafelek jest wystarczająco duży na ekranie
+                    ctx.fillStyle = "rgba(0, 255, 0, 1)";
+                    ctx.fillText(`${tx}, ${ty}`, rx + size/2, ry + size/2);
+                }
             }
         }
     }
@@ -1234,10 +1233,6 @@ canvas.addEventListener('pointerup', e => {
             const key = `${tx}_${ty}`;
             if (selectedTiles.has(key)) selectedTiles.delete(key);
             else selectedTiles.add(key);
-            
-            const clearBtn = document.getElementById('clear-selected-tiles-btn');
-            clearBtn.style.display = selectedTiles.size > 0 ? 'block' : 'none';
-            clearBtn.textContent = `Wyczyść (${selectedTiles.size})`;
             
             // Poinformuj o zmianach (aby przycisk WPROWADŹ ZMIANY się pojawił)
             notifyChange();
@@ -2048,6 +2043,9 @@ document.getElementById('toggle-grid-btn')?.addEventListener('click', function()
     showGrid = !showGrid;
     this.classList.toggle('off');
     this.textContent = showGrid ? 'Siatka [ON]' : 'Siatka [OFF]';
+    if (showGrid) {
+        loadSelectedTiles();
+    }
     draw();
 });
 
@@ -2056,17 +2054,34 @@ document.getElementById('toggle-select-tiles-btn')?.addEventListener('click', fu
     this.classList.toggle('off');
     this.textContent = selectingTiles ? 'Wybierz kafelki [ON]' : 'Wybierz kafelki [OFF]';
     if (selectingTiles) {
-        zoom = 2; // Wymuś przybliżenie dla kafelków 256
-        slider.value = zoom;
+        loadSelectedTiles();
     }
     draw();
 });
 
-document.getElementById('clear-selected-tiles-btn')?.addEventListener('click', function() {
-    selectedTiles.clear();
-    this.style.display = 'none';
-    draw();
-});
+function loadSelectedTiles() {
+    console.log("Pobieranie kafelków z serwera...");
+    // Używamy serwera zamiast lokalnego pliku, aby uniknąć błędów CORS na file://
+    fetch(SERVER_URL + '/get-render-list?t=' + Date.now())
+        .then(res => {
+            if (!res.ok) throw new Error("Brak pliku na serwerze");
+            return res.text();
+        })
+        .then(text => {
+            if (!text || text.trim().startsWith('<!DOCTYPE')) {
+                console.log("Plik puste lub błędny.");
+                return;
+            }
+            const items = text.split(/[, \n]+/).map(s => s.trim()).filter(s => s.includes('_'));
+            const oldSize = selectedTiles.size;
+            items.forEach(key => selectedTiles.add(key));
+            console.log(`Wczytano ${items.length} kafelków z serwera.`);
+            draw();
+        })
+        .catch(e => {
+            console.warn("Nie udało się pobrać listy kafelków z serwera (CORS/Brak pliku).");
+        });
+}
 
 function editPolygon(idx) {
     const p = polygons[idx];
