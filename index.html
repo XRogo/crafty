@@ -450,6 +450,13 @@
             <div id="zoom-label">Zoom: 1.00x</div>
         </div>
 
+        <!-- PRZYCISKI DEBUG / RENDER -->
+        <div id="render-tools" style="position: absolute; bottom: 130px; left: 15px; display: flex; flex-direction: column; gap: 8px; z-index: 30;">
+            <button id="toggle-grid-btn" class="toggle-btn off">Siatka [OFF]</button>
+            <button id="toggle-select-tiles-btn" class="toggle-btn off">Wybierz kafelki [OFF]</button>
+            <button id="clear-selected-tiles-btn" class="toggle-btn" style="display:none; background:#f44; box-shadow: 0 0 10px #f44;">Wyczyść (0)</button>
+        </div>
+
         <!-- PANEL INFORMACJI O POLIGONIE -->
         <div id="poly-info-panel" class="premium-panel"
             style="position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%); width: 90%; max-width: 600px; display: none; z-index: 100; padding: 10px 20px;">

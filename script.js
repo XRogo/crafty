@@ -19,6 +19,9 @@ let isAddingExits = false;
 let connectionBlinkColor = '#ffff00';
 let isStartSnapped = false;
 let isEndSnapped = false;
+let showGrid = false;
+let selectingTiles = false;
+let selectedTiles = new Set();
 const SNAP_THRESHOLD = 10;
 let history = [];
 let selectedPolygonIndex = -1;
@@ -379,35 +382,39 @@ function getPixelScale() {
     return { scale: tps / bpt, tilePixelSize: tps };
 }
 
-//wczytywanie mapy â€“ Ĺ‚adowanie kafelkĂłw
+//wczytywanie mapy – ładowanie kafelków
 function loadTile(tx, ty, level) {
     const key = `${level.folder}_${tx}_${ty}`;
     if (cache.has(key)) return cache.get(key);
-    const PNG_IN_256 = new Set(['-2_2', '-2_1', '-3_1', '-4_1', '-8_1', '-9_1', '-2_0', '-3_0', '-4_0', '-8_0', '-9_0', '4_-1', '-2_-1', '-3_-1', '-4_-1',
-        '-6_-1', '-7_-1', '-2_-3', '-3_-3', '-2_-4', '1_1', '-1_1', '1_0', '0_0', '-1_0', '1_-1', '-1_-1', '0_1', '0_-1', '0_-6', '-1_-5',
-        '-1_-6', '0_-5', '-5_2', '-4_2', '-3_-4', '-3_2', '-2_-2', '-2_2', '-1_-4', '-1_2', '0_2', '1_2', '-4_-2', '-3_-2', '-8_-1', '-9_-1', '-8_2',
-        '-9_-2', '-28_4', '-28_3', '-27_4', '-28_3', '-26_3', '-33_-25', '-33_-24', '-2_-2', '0_-4']);
     const tryLoad = (ext) => {
         const img = new Image();
         img.src = `tiles/${level.folder}/${tx}_${ty}.${ext}`;
         const p = new Promise(r => {
             img.onload = () => {
-                img.alpha = 0; // PoczÄ…tkowa przeĹşroczystoĹ›Ä‡ dla efektu fade-in
+                img.alpha = 0; 
                 cache.set(key, img);
                 r(img);
             };
             img.onerror = () => r(null);
         });
-        cache.set(key, p);
         return p;
     };
 
-    if (level.folder === 2 && PNG_IN_256.has(`${tx}_${ty}`)) {
-        const png = tryLoad('png');
-        png.then(img => { if (!img) tryLoad('webp'); });
-        return png;
+    // Próba załadowania PNG (tylko dla poziomu 2 - 256px)
+    if (level.folder === 2) {
+        const p = tryLoad('png').then(img => {
+            if (img) return img;
+            // Jeśli nie ma PNG, spróbuj WebP
+            return tryLoad('webp');
+        });
+        cache.set(key, p);
+        return p;
     }
-    return tryLoad('webp');
+
+    return tryLoad('webp').then(img => {
+        cache.set(key, img);
+        return img;
+    });
 }
 
 async function processTileQueue() {
@@ -476,6 +483,55 @@ function drawTiles() {
                     tileQueue.push({ tx, ty, level, key });
                     processTileQueue();
                 }
+            }
+        }
+    }
+    drawGrid();
+    ctx.restore();
+}
+
+function drawGrid() {
+    if (!showGrid && !selectingTiles) return;
+    
+    const level = getLevel();
+    if (level.folder !== 2) return; // Grid tylko na zoomie 256
+    
+    const bpt = 256;
+    const { scale: ppb } = getPixelScale();
+    const cx = innerWidth / 2, cy = innerHeight / 2;
+    const bounds = getViewportBounds();
+    
+    const startTx = Math.floor(bounds.minX / bpt);
+    const endTx = Math.ceil(bounds.maxX / bpt);
+    const startTy = Math.floor(bounds.minY / bpt);
+    const endTy = Math.ceil(bounds.maxY / bpt);
+
+    ctx.save();
+    ctx.font = "14px Arial";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    for (let tx = startTx; tx <= endTx; tx++) {
+        for (let ty = startTy; ty <= endTy; ty++) {
+            const bx = tx * bpt;
+            const bz = ty * bpt;
+            const rx = cx + (bx - viewX) * ppb;
+            const ry = cy + (bz - viewY) * ppb;
+            const size = bpt * ppb;
+
+            // Zaznaczenie wybranego kafelka
+            if (selectedTiles.has(`${tx}_${ty}`)) {
+                ctx.fillStyle = "rgba(255, 255, 0, 0.3)";
+                ctx.fillRect(rx, ry, size, size);
+            }
+
+            if (showGrid) {
+                ctx.strokeStyle = "rgba(0, 255, 0, 0.3)";
+                ctx.lineWidth = 1;
+                ctx.strokeRect(rx, ry, size, size);
+                
+                ctx.fillStyle = "rgba(0, 255, 0, 0.8)";
+                ctx.fillText(`${tx}, ${ty}`, rx + size/2, ry + size/2);
             }
         }
     }
@@ -1171,6 +1227,23 @@ canvas.addEventListener('pointerup', e => {
     // CLICK (short and no drag)
     if (elapsed < 250 && dist < 10) {
         const [wx, wz] = screenToWorld(e.clientX, e.clientY);
+
+        if (selectingTiles) {
+            const tx = Math.floor(wx / 256);
+            const ty = Math.floor(wz / 256);
+            const key = `${tx}_${ty}`;
+            if (selectedTiles.has(key)) selectedTiles.delete(key);
+            else selectedTiles.add(key);
+            
+            const clearBtn = document.getElementById('clear-selected-tiles-btn');
+            clearBtn.style.display = selectedTiles.size > 0 ? 'block' : 'none';
+            clearBtn.textContent = `Wyczyść (${selectedTiles.size})`;
+            
+            // Poinformuj o zmianach (aby przycisk WPROWADŹ ZMIANY się pojawił)
+            notifyChange();
+            draw();
+            return;
+        }
 
         if (isDrawing) {
             detectHover(e.clientX, e.clientY);
@@ -1970,6 +2043,31 @@ document.querySelectorAll('#category-toggle .toggle-btn').forEach(btn => {
     });
 });
 
+// LISTENERY NARZĘDZI RENDEROWANIA
+document.getElementById('toggle-grid-btn')?.addEventListener('click', function() {
+    showGrid = !showGrid;
+    this.classList.toggle('off');
+    this.textContent = showGrid ? 'Siatka [ON]' : 'Siatka [OFF]';
+    draw();
+});
+
+document.getElementById('toggle-select-tiles-btn')?.addEventListener('click', function() {
+    selectingTiles = !selectingTiles;
+    this.classList.toggle('off');
+    this.textContent = selectingTiles ? 'Wybierz kafelki [ON]' : 'Wybierz kafelki [OFF]';
+    if (selectingTiles) {
+        zoom = 2; // Wymuś przybliżenie dla kafelków 256
+        slider.value = zoom;
+    }
+    draw();
+});
+
+document.getElementById('clear-selected-tiles-btn')?.addEventListener('click', function() {
+    selectedTiles.clear();
+    this.style.display = 'none';
+    draw();
+});
+
 function editPolygon(idx) {
     const p = polygons[idx];
     if (!p) return;
@@ -2238,6 +2336,15 @@ document.getElementById('submit-changes-btn').addEventListener('click', () => {
             content: `window.registerPolygons([\n${formattedList}\n]);`
         });
     });
+
+    // DODAJ PLIK RENDEROWANIA JEŚLI SĄ WYBRANE KAFELKI
+    if (selectedTiles.size > 0) {
+        batch.push({
+            author: "System",
+            path: "ktore_render.txt",
+            content: Array.from(selectedTiles).join(', ')
+        });
+    }
 
     fetch(SERVER_URL + "/save-batch", {
         method: "POST",
