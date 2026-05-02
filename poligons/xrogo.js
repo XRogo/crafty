@@ -42,7 +42,7 @@ window.registerPolygons([
         name: "Magazyn",
         category: "pin",
         authors: ["XRogo"],
-        panorama: ["foto/magazyn/"]
+        panorama: ["foto/xrogo_magazyn/"]
     },
     {
         points: [[-499, 338]],
@@ -51,33 +51,7 @@ window.registerPolygons([
         closePath: true,
         name: "Pola",
         category: "pin",
-        authors: ["XRogo", "MorrisEk"]
-    },
-    {
-        points: [[598, 1332], [603, 1358], [639, 1356], [645, 1334]],
-        lineColor: "#00ff00",
-        fillColor: "#00ff0033",
-        closePath: true,
-        name: "teren",
-        category: "terrain",
-        authors: ["XRogo"]
-    },
-    {
-        points: [[711, 1353], [709, 1333], [771, 1335], [766, 1351]],
-        lineColor: "#00ff00",
-        fillColor: "#00ff0033",
-        closePath: true,
-        name: "teren",
-        category: "terrain",
-        authors: ["XRogo"]
-    },
-    {
-        points: [[652, 1283], [655, 1305], [719, 1304], [722, 1276]],
-        lineColor: "#00ff00",
-        fillColor: "#00ff0033",
-        closePath: true,
-        name: "teren",
-        category: "terrain",
-        authors: ["XRogo"]
-    },
+        authors: ["XRogo", "MorrisEk"],
+        panorama: ["foto/pola/"]
+    }
 ]);
