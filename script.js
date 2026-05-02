@@ -43,6 +43,9 @@ function notifyChange(authors) {
 
 function formatPolygon(p) {
     let s = '    {\n';
+    const specialFields = ['points', 'location', 'lineColor', 'fillColor', 'closePath', 'name', 'opis', 'category', 'authors'];
+    
+    // Najpierw pola specjalne w ustalonej kolejności (estetyka)
     if (p.points) s += `        points: ${JSON.stringify(p.points)},\n`;
     if (p.location) s += `        location: ${JSON.stringify(p.location)},\n`;
     s += `        lineColor: "${p.lineColor}",\n`;
@@ -51,15 +54,25 @@ function formatPolygon(p) {
     if (p.name) s += `        name: "${p.name.replace(/"/g, '\\"')}",\n`;
     if (p.opis) s += `        opis: "${p.opis.replace(/"/g, '\\"')}",\n`;
     s += `        category: "${p.category}",\n`;
-    if (p.temporary) s += `        temporary: true,\n`;
-    if (p.in) s += `        in: ${JSON.stringify(p.in)},\n`;
-    if (p.out) s += `        out: ${JSON.stringify(p.out)},\n`;
-    if (p.from) s += `        from: "${p.from}",\n`;
-    if (p.to) s += `        to: "${p.to}",\n`;
-    if (p.panorama) s += `        panorama: ${JSON.stringify(p.panorama)},\n`;
-    if (p.photo) s += `        photo: ${JSON.stringify(p.photo)},\n`;
-    if (p.authors) s += `        authors: ${JSON.stringify(p.authors)}\n`;
-    s += '    },';
+    if (p.authors) s += `        authors: ${JSON.stringify(p.authors)},\n`;
+
+    // Reszta pól dynamicznie
+    for (let key in p) {
+        if (specialFields.includes(key)) continue;
+        if (p[key] === undefined || p[key] === null) continue;
+        
+        let value = p[key];
+        if (typeof value === 'string') {
+            s += `        ${key}: "${value.replace(/"/g, '\\"')}",\n`;
+        } else {
+            s += `        ${key}: ${JSON.stringify(value)},\n`;
+        }
+    }
+
+    // Usuń ostatni przecinek i nową linię, dodaj zamknięcie
+    s = s.trimEnd();
+    if (s.endsWith(',')) s = s.substring(0, s.length - 1);
+    s += '\n    },';
     return s;
 }
 
@@ -96,24 +109,20 @@ function parseAuthors(p) {
 function loadPolygonsFromData() {
     const processData = (data) => {
         if (!data || !Array.isArray(data)) return;
-        const newPolys = data.map(p => ({
-            points: p.points || p.location || [],
-            location: p.location || null,
-            lineColor: p.lineColor || '#00ff00',
-            fillColor: p.fillColor || '#00ff0033',
-            closePath: p.closePath !== false,
-            name: p.name || '',
-            opis: p.opis || '',
-            category: p.category === 1 ? 'terrain' : p.category === 3 ? 'road' : p.category || 'terrain',
-            temporary: p.temporary || false,
-            in: p.in || null,
-            out: p.out || null,
-            from: p.from || null,
-            to: p.to || null,
-            panorama: p.panorama || null,
-            photo: p.photo || null,
-            authors: parseAuthors(p)
-        }));
+        const newPolys = data.map(p => {
+            const poly = { ...p };
+            // Normalizacja tylko niezbędnych pól, zachowując resztę bez zmian
+            if (!poly.points && poly.location) poly.points = poly.location;
+            if (!poly.points) poly.points = [];
+            
+            if (!poly.lineColor) poly.lineColor = '#00ff00';
+            if (!poly.fillColor) poly.fillColor = '#00ff0033';
+            if (poly.closePath === undefined) poly.closePath = true;
+            
+            poly.category = poly.category === 1 ? 'terrain' : poly.category === 3 ? 'road' : poly.category || 'terrain';
+            poly.authors = parseAuthors(p);
+            return poly;
+        });
 
         newPolys.forEach(np => {
             const existing = polygons.find(p => (JSON.stringify(p.points || p.location) === JSON.stringify(np.points || np.location)));
