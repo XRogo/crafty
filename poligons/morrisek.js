@@ -43,8 +43,7 @@ window.registerPolygons([
         closePath: true,
         name: "Stacja Port",
         category: "station",
-        in: [[-142, 8]],
-        out: [[-142, 33]],
+        nodes: [[-142, 8], [-142, 33]],
         from: "Stacja Ozzy[in]",
         to: "Stacja Ozzy[in]",
     },
@@ -184,7 +183,7 @@ window.registerPolygons([
         lineColor: "#585858",
         fillColor: "#58585833",
         closePath: true,
-        name: "most kolejowy",
+        name: "most kolejowy{1}",
         category: 1,
         temporary: true
     },
@@ -194,7 +193,7 @@ window.registerPolygons([
         lineColor: "#585858",
         fillColor: "#58585833",
         closePath: true,
-        name: "most kolejowy",
+        name: "most kolejowy{2}",
         category: 1,
         temporary: true
     },
@@ -204,7 +203,7 @@ window.registerPolygons([
         lineColor: "#585858",
         fillColor: "#58585833",
         closePath: true,
-        name: "most kolejowy",
+        name: "most kolejowy{3}",
         category: 1,
         temporary: true
     },
@@ -214,7 +213,7 @@ window.registerPolygons([
         lineColor: "#585858",
         fillColor: "#58585833",
         closePath: true,
-        name: "most kolejowy",
+        name: "most kolejowy{4}",
         category: 1,
         temporary: true
     },
@@ -224,7 +223,7 @@ window.registerPolygons([
         lineColor: "#585858",
         fillColor: "#58585833",
         closePath: true,
-        name: "most kolejowy",
+        name: "most kolejowy{5}",
         category: 1,
         temporary: true
     },
@@ -382,21 +381,5 @@ window.registerPolygons([
         fillColor: "transparent",
         closePath: false,
         category: "road",
-    },
-    {
-        points: [[-2080, -125], [-2058, -98], [-2020, -80], [-1974, -86], [-1950, -108], [-1919, -145], [-1910, -179], [-1878, -218], [-1880, -238], [-1900, -265], [-1937, -275], [-1987, -277], [-2019, -272], [-2048, -250], [-2074, -233], [-2095, -185], [-2098, -150]],
-        lineColor: "#00a87e",
-        fillColor: "#00a87e33",
-        closePath: true,
-        name: "Neresiowa Dziurwa",
-        category: "terrain",
-    },
-    {
-        points: [[-8092, -6289], [-8176, -6337], [-8290, -6372], [-8463, -6310], [-8511, -6177], [-8498, -6073], [-8418, -6001], [-8300, -5965], [-8177, -6013], [-8089, -6092], [-8068, -6189]],
-        lineColor: "#00a87e",
-        fillColor: "#00a87e33",
-        closePath: true,
-        name: "Wioska Damixa",
-        category: "terrain",
     },
 ]);

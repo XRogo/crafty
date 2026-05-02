@@ -4,6 +4,7 @@
 <head>
     <!-- v210 - Craftly Map Premium -->
     <meta charset="UTF-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mapa Craftly</title>
     <link rel="icon" href="icon/favicon.ico?v=1" type="image/x-icon">
@@ -243,6 +244,26 @@
             border: 1px solid #f00;
         }
 
+        /* BLOKADA INTERFEJSU GDY MODAL OTWARTY */
+        body.modal-active .premium-panel {
+            pointer-events: none !important;
+            filter: blur(2px) brightness(0.5);
+            user-select: none;
+        }
+        body.modal-active #code-modal,
+        body.modal-active #custom-confirm-modal {
+            pointer-events: auto !important;
+            filter: none !important;
+            opacity: 1 !important;
+        }
+        body.modal-active #category-toggle,
+        body.modal-active #user-display,
+        body.modal-active #history-clock,
+        body.modal-active #area-info,
+        body.modal-active #map {
+            pointer-events: none !important;
+        }
+
         #submit-changes-btn {
             display: none;
             padding: 6px 12px;
@@ -373,12 +394,13 @@
 <body>
     <!-- LOGIN MODAL -->
     <div id="login-modal">
-        <div class="premium-panel" style="width: 350px; text-align: center;">
-            <h2 style="margin-bottom: 20px;">KIM JESTEŚ?</h2>
-            <select id="user-select"
-                style="width: 100%; padding: 12px; background: #000; color: #0f0; border: 2px solid #0f0; border-radius: 8px; font-size: 16px;"></select>
+        <div id="login-modal-content" class="premium-panel" style="width: 400px; text-align: center; max-height: 80vh; display: flex; flex-direction: column;">
+            <h2 style="margin-bottom: 10px;">KIM JESTEŚ?</h2>
+            <div id="user-select-list" style="display:flex; flex-wrap:wrap; gap:10px; overflow-y:auto; justify-content:center; margin-bottom:15px; padding-right:5px; flex: 1;">
+                <!-- Opcje graczy wygeneruje JS -->
+            </div>
             <button id="login-btn"
-                style="width: 100%; padding: 12px; background: #0f0; color: #000; border: none; border-radius: 8px; font-weight: bold; margin-top: 20px; cursor: pointer; font-size: 18px;">WCHODZĘ</button>
+                style="width: 100%; padding: 12px; background: #0f0; color: #000; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 18px; flex-shrink: 0;">WCHODZĘ</button>
         </div>
     </div>
 
@@ -403,8 +425,7 @@
         </div>
 
         <div id="area-info">
-            Pole: <span id="area-val">0</span> m²<br>
-            Objętość: <span id="vol-val">0</span> m³
+            <span id="area-val">0</span>
         </div>
 
         <!-- PRZEŁĄCZNIKI KATEGORII -->
@@ -456,6 +477,7 @@
                     <button id="info-poly-photo-btn" class="toggle-btn"
                         style="display:none; background:#f0a; box-shadow: 0 0 10px #f0a;">📸 ZDJĘCIA</button>
                     <button id="edit-poly-btn" class="toggle-btn">EDYTUJ</button>
+                    <button id="info-poly-delete-btn" class="toggle-btn" style="background:#f44; box-shadow: 0 0 10px #f44;">USUŃ</button>
                     <button id="close-info-btn" class="cat-btn"
                         style="border-radius: 50%; width: 30px; height: 30px; padding: 0;">X</button>
                 </div>
@@ -466,12 +488,10 @@
         <div id="editor-panel" class="premium-panel"
             style="position: absolute; top: 70px; left: 15px; width: 300px; display: none; z-index: 998;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                <h3>EDYTOR TERENU</h3>
+                <h3>EDYTOR</h3>
                 <div style="display:flex; gap:5px;">
                     <button id="back-to-menu-terrain" class="cat-btn"
                         style="padding: 2px 8px; font-size: 12px;">POWRÓT</button>
-                    <button id="close-editor"
-                        style="background:none; border:none; color:#0f0; font-size:24px; cursor:pointer;">X</button>
                 </div>
             </div>
 
@@ -480,12 +500,7 @@
                 style="display:flex; flex-wrap:wrap; gap:4px; margin:5px 0; max-height: 80px; overflow-y: auto; border: 1px solid #0f0; padding: 5px;">
             </div>
 
-            <label>Kategoria:</label>
-            <div style="display:flex; gap:5px; margin:5px 0;">
-                <button class="cat-btn" data-cat="terrain">Teren</button>
-                <button class="cat-btn" data-cat="road">Droga</button>
-                <button class="cat-btn" data-cat="pin">Pineska</button>
-            </div>
+            <label>Kategoria: <span id="poly-category-label" style="font-weight:bold; color:#fff;">Teren</span></label>
             <label>Nazwa:</label>
             <input type="text" id="polyName"
                 style="width:100%; background:#000; color:#0f0; border:1px solid #0f0; padding:8px; margin:5px 0;">
@@ -496,8 +511,8 @@
                 OFF</button>
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
-                <button id="startDrawing"
-                    style="padding:12px; background:#0f0; color:#000; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">RYSOWANIE</button>
+                <button id="cancelDrawing"
+                    style="padding:12px; background:#f44; color:#fff; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">ANULUJ</button>
                 <button id="quickSaveBtn"
                     style="padding:12px; background:#fff; color:#000; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">ZAPISZ</button>
             </div>
@@ -524,10 +539,13 @@
 
         <div id="rail-editor-panel" class="premium-panel"
             style="position: absolute; top: 70px; left: 15px; width: 300px; display: none; z-index: 998;">
-            <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
                 <h3>EDYTOR KOLEI</h3>
-                <button id="close-rail-editor"
-                    style="background:none; border:none; color:#0f0; font-size:24px; cursor:pointer;">X</button>
+                <button id="back-to-menu-rail" class="cat-btn" style="padding: 2px 8px; font-size: 12px;">POWRÓT</button>
+            </div>
+            <label>Dodatkowi Autorzy:</label>
+            <div id="railAuthorsList"
+                style="display:flex; flex-wrap:wrap; gap:4px; margin:5px 0; max-height: 80px; overflow-y: auto; border: 1px solid #0f0; padding: 5px;">
             </div>
             <label>Kategoria: <span id="rail-category">-</span></label>
             <label>Nazwa:</label>
@@ -544,12 +562,11 @@
                 OFF</button>
 
             <div id="rail-station-buttons" style="display:none;">
-                <button id="rail-add-in-btn" class="toggle-btn" style="width:100%; margin:5px 0;">DODAJ IN</button>
-                <button id="rail-add-out-btn" class="toggle-btn" style="width:100%; margin:5px 0;">DODAJ OUT</button>
+                <button id="rail-add-exit-btn" class="toggle-btn" style="width:100%; margin:5px 0; background: #ff00ff;">DODAJ WYJŚCIA</button>
             </div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
-                <button id="rail-startDrawing"
-                    style="padding:12px; background:#0f0; color:#000; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">START</button>
+                <button id="cancelRailDrawing"
+                    style="padding:12px; background:#f44; color:#fff; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">ANULUJ</button>
                 <button id="railQuickSaveBtn"
                     style="padding:12px; background:#fff; color:#000; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">ZAPISZ</button>
             </div>
@@ -562,17 +579,29 @@
 
         <!-- MODAL KODU -->
         <div id="code-modal" class="premium-panel"
-            style="position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); z-index:2000; display:none; width:80%; max-width:600px;">
-            <h3 style="text-align:center;">GOTOWY KOD</h3>
-            <p style="text-align: center; font-size: 12px; color: #aaa;">Skopiuj i wklej do swojego pliku w folderze
-                poligons/</p>
-            <textarea id="code-text"
-                style="width:100%; height:200px; background:#000; color:#0f0; border:1px solid #0f0; padding:10px; margin-top:10px; font-family: monospace;"></textarea>
-            <div style="display:flex; justify-content:space-around; margin-top:15px;">
-                <button id="copy-btn" class="toggle-btn">KOPIUJ</button>
-                <button id="close-modal" class="toggle-btn">ZAMKNIJ / GOTOWE</button>
-                <button id="server-save-btn" class="toggle-btn"
-                    style="background:#ff00ff; box-shadow: 0 0 15px #ff00ff;">WPROWADŹ ZMIANĘ</button>
+            style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 400px; display: none; z-index: 1001; text-align: center; border: 2px solid #ff00ff; box-shadow: 0 0 30px rgba(255, 0, 255, 0.5);">
+            <h3 id="code-modal-title" style="color: #ff00ff; margin-bottom: 15px;">ZATWIERDŹ ZMIANY</h3>
+            <div id="code-modal-content" style="margin-bottom: 20px; font-size: 14px; color: #ccc; line-height: 1.6;">
+                Czy na pewno chcesz zapisać wprowadzone zmiany?
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px;">
+                <textarea id="code-text" style="display:none; width:100%; height:150px; background:#000; color:#0f0; border:1px solid #0f0; font-family:monospace; font-size:12px; padding:5px;"></textarea>
+                <button id="show-code-btn" class="cat-btn" style="width: 100%;">POKAŻ KOD</button>
+            </div>
+            <div style="display: flex; gap: 10px; justify-content: center;">
+                <button id="confirm-save-btn" class="toggle-btn" style="background: #0f0; color: #000; flex: 1;">ZAPISZ</button>
+                <button id="close-modal" class="toggle-btn" style="background: #f44; color: #fff; flex: 1;">WRÓĆ</button>
+            </div>
+        </div>
+
+        <!-- CUSTOM CONFIRM MODAL (DLA USUWANIA) -->
+        <div id="custom-confirm-modal" class="premium-panel"
+            style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 350px; display: none; z-index: 1002; text-align: center; border: 2px solid #f00; box-shadow: 0 0 30px rgba(255, 0, 0, 0.5);">
+            <h3 id="confirm-title" style="color: #f00; margin-bottom: 15px;">POTWIERDZENIE</h3>
+            <p id="confirm-msg" style="margin-bottom: 20px; color: #eee; font-size: 14px;"></p>
+            <div style="display: flex; gap: 10px; justify-content: center;">
+                <button id="custom-confirm-yes" class="toggle-btn" style="background: #f00; color: #fff; flex: 1;">USUŃ</button>
+                <button id="custom-confirm-no" class="toggle-btn" style="background: #666; color: #fff; flex: 1;">ANULUJ</button>
             </div>
         </div>
 

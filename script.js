@@ -12,10 +12,10 @@ let hoverConnection = -1;
 let edgePoint = null;
 let blink = true;
 let selectingFrom = false;
-let settingIn = false;
-let settingOut = false;
 let inPointIndex = -1;
-let outPointIndex = -1;
+let outPointIndices = [];
+let stationExits = [];
+let isAddingExits = false;
 let connectionBlinkColor = '#ffff00';
 let isStartSnapped = false;
 let isEndSnapped = false;
@@ -24,6 +24,8 @@ let history = [];
 let selectedPolygonIndex = -1;
 let isEditing = false;
 let needsRedraw = true;
+let isDraggingExit = false;
+let draggedExitIndex = -1;
 window.hasUnsavedChanges = false;
 window.dirtyAuthors = new Set();
 
@@ -56,6 +58,36 @@ function formatPolygon(p) {
     return s;
 }
 
+function showCustomConfirm(msg, onYes) {
+    const modal = document.getElementById('custom-confirm-modal');
+    if (!modal) return onYes(); 
+    document.getElementById('confirm-msg').textContent = msg;
+    modal.style.display = 'block';
+    document.body.classList.add('modal-active');
+    document.getElementById('custom-confirm-yes').onclick = () => {
+        modal.style.display = 'none';
+        document.body.classList.remove('modal-active');
+        onYes();
+    };
+    document.getElementById('custom-confirm-no').onclick = () => {
+        modal.style.display = 'none';
+        document.body.classList.remove('modal-active');
+    };
+}
+
+const isModalOpen = () => (document.getElementById('code-modal')?.style.display === 'block' || document.getElementById('custom-confirm-modal')?.style.display === 'block');
+
+function parseAuthors(p) {
+    let raw = p.authors || p.autor || p.author || [];
+    if (typeof raw === 'string') {
+        return raw.split('/').map(s => s.trim()).filter(s => s);
+    }
+    if (Array.isArray(raw)) {
+        return raw.flatMap(a => typeof a === 'string' ? a.split('/').map(s => s.trim()) : a).filter(s => s);
+    }
+    return [];
+}
+
 function loadPolygonsFromData() {
     const processData = (data) => {
         if (!data || !Array.isArray(data)) return;
@@ -75,12 +107,11 @@ function loadPolygonsFromData() {
             to: p.to || null,
             panorama: p.panorama || null,
             photo: p.photo || null,
-            authors: p.authors || (p.autor ? [p.autor] : (p.author ? [p.author] : []))
+            authors: parseAuthors(p)
         }));
 
         newPolys.forEach(np => {
-            const existing = polygons.find(p => (p.name === np.name && p.name !== '') ||
-                (JSON.stringify(p.points || p.location) === JSON.stringify(np.points || np.location)));
+            const existing = polygons.find(p => (JSON.stringify(p.points || p.location) === JSON.stringify(np.points || np.location)));
             if (existing) {
                 // PoĹ‚Ä…cz wĹ‚aĹ›ciwoĹ›ci (np. dodaj panorama jeĹ›li brakowaĹ‚o)
                 Object.assign(existing, np);
@@ -192,13 +223,32 @@ function calculatePathLength(pts) {
     return len;
 }
 
-// Inicjalizacja autorĂłw i Logowanie
+// Inicjalizacja autorów i Logowanie
 let currentUser = null;
-function initLogin() {
-    const userSelect = document.getElementById('user-select');
-    if (!window.playersData) return;
+let selectedLoginNick = null;
 
-    userSelect.innerHTML = window.playersData.map(p => `<option value="${p.nick}">${p.nick}</option>`).join('');
+function initLogin() {
+    const userSelectList = document.getElementById('user-select-list');
+    if (!window.playersData || !userSelectList) return;
+
+    userSelectList.innerHTML = window.playersData.map(p => `
+        <div class="user-option" data-nick="${p.nick}" style="padding:10px; border:2px solid #444; border-radius:8px; cursor:pointer; display:flex; flex-direction:column; align-items:center; width:85px; transition: all 0.2s;">
+            <img src="${p.icon}" style="width:32px;height:32px;image-rendering:pixelated;margin-bottom:5px;border:1px solid #0f0;">
+            <span style="font-size:11px; word-break: break-all;">${p.nick}</span>
+        </div>
+    `).join('');
+
+    document.querySelectorAll('.user-option').forEach(opt => {
+        opt.addEventListener('click', function() {
+            document.querySelectorAll('.user-option').forEach(o => {
+                o.style.borderColor = '#444';
+                o.style.boxShadow = 'none';
+            });
+            this.style.borderColor = '#0f0';
+            this.style.boxShadow = '0 0 10px #0f0';
+            selectedLoginNick = this.dataset.nick;
+        });
+    });
 
     const saved = localStorage.getItem('craftly_user');
     if (saved) {
@@ -207,6 +257,7 @@ function initLogin() {
 }
 
 function login(nick) {
+    if (!nick) return;
     currentUser = window.playersData.find(p => p.nick === nick);
     if (!currentUser) return;
 
@@ -219,20 +270,60 @@ function login(nick) {
 
 function initAuthorCheckboxes() {
     const list = document.getElementById('polyAuthorsList');
-    if (!list || !window.playersData) return;
-    list.innerHTML = window.playersData.map(p => `
+    const railList = document.getElementById('railAuthorsList');
+    if (!window.playersData) return;
+    const html = window.playersData.map(p => `
         <label style="display:flex; align-items:center; gap:5px; font-size:12px; cursor:pointer;">
-            <input type="checkbox" value="${p.nick}" ${p.nick === currentUser?.nick ? 'checked' : ''}> ${p.nick}
+            <input type="checkbox" value="${p.nick}" ${p.nick === currentUser?.nick ? 'checked' : ''}>
+            <img src="${p.icon}" style="width:16px;height:16px;image-rendering:pixelated;border:1px solid #0f0;">
+            ${p.nick}
         </label>
     `).join('');
+    if (list) list.innerHTML = html;
+    if (railList) railList.innerHTML = html;
 }
 
 document.getElementById('login-btn').addEventListener('click', () => {
-    login(document.getElementById('user-select').value);
+    login(selectedLoginNick);
 });
 
 document.getElementById('user-display').addEventListener('click', () => {
-    document.getElementById('login-modal').style.display = 'flex';
+    const modal = document.getElementById('login-modal');
+    modal.style.display = 'flex';
+    
+    // Zaznacz aktualnego uzytkownika domyslnie
+    selectedLoginNick = currentUser ? currentUser.nick : (window.playersData[0]?.nick);
+    document.querySelectorAll('.user-option').forEach(o => {
+        if(o.dataset.nick === selectedLoginNick) {
+            o.style.borderColor = '#0f0';
+            o.style.boxShadow = '0 0 10px #0f0';
+        } else {
+            o.style.borderColor = '#444';
+            o.style.boxShadow = 'none';
+        }
+    });
+});
+
+// Zamykanie modali na klikniecie w tlo
+window.addEventListener('click', (e) => {
+    const loginModal = document.getElementById('login-modal');
+    if (e.target === loginModal) {
+        loginModal.style.display = 'none';
+    }
+});
+
+// Zamykanie na ESC
+window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        const loginModal = document.getElementById('login-modal');
+        if(loginModal.style.display === 'flex') loginModal.style.display = 'none';
+        
+        const addMenuPanel = document.getElementById('add-menu-panel');
+        if(addMenuPanel.style.display === 'block') {
+            addMenuPanel.style.display = 'none';
+            document.getElementById('open-add-menu-btn').style.display = 'block';
+        }
+    }
 });
 
 initLogin();
@@ -421,16 +512,35 @@ function updateInfo() {
     zoomLabel.textContent = `Zoom: ${zoom.toFixed(2)}x`;
     slider.value = zoom;
 
-    // Aktualizacja pola i objÄ™toĹ›ci jeĹ›li rysujemy
-    if (isDrawing && tempPoints.length > 2) {
-        const area = Math.abs(calculateArea(tempPoints));
+    // Aktualizacja pola i dlugosci jesli rysujemy
+    if (isDrawing && tempPoints.length > 0) {
         document.getElementById('area-info').style.display = 'block';
-        document.getElementById('area-val').textContent = Math.round(area);
-        const height = 1; // domyĹ›lna wysokoĹ›Ä‡, moĹĽna dodaÄ‡ input
-        document.getElementById('vol-val').textContent = Math.round(area * height);
+        const infoSpan = document.getElementById('area-val');
+        if (['terrain', 'station', 'intersection', 'pin'].includes(editorConfig.category)) {
+            if (tempPoints.length > 2) {
+                const area = Math.abs(calculateArea(tempPoints));
+                infoSpan.textContent = `Pole: ${formatNumber(Math.round(area))} m²`;
+            } else {
+                infoSpan.textContent = `Pole: 0 m²`;
+            }
+        } else {
+            if (tempPoints.length > 1) {
+                let len = 0;
+                for (let i = 0; i < tempPoints.length - 1; i++) {
+                    len += Math.hypot(tempPoints[i+1][0] - tempPoints[i][0], tempPoints[i+1][1] - tempPoints[i][1]);
+                }
+                infoSpan.textContent = `Długość: ${formatNumber(Math.round(len))} m`;
+            } else {
+                infoSpan.textContent = `Długość: 0 m`;
+            }
+        }
     } else {
         document.getElementById('area-info').style.display = 'none';
     }
+}
+
+function formatNumber(num) {
+    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
 }
 
 // Obliczanie pola powierzchni (Shoelace formula)
@@ -494,7 +604,7 @@ function calculateCentroid(points) {
     return [x / points.length, z / points.length];
 }
 
-function drawTextAlongPath(text, points, offset = 0, color = 'white') {
+function drawTextAlongPath(text, points, offset = 0, color = 'white', isSelected = false) {
     if (points.length < 2) return;
     const totalLength = points.reduce((len, p, i) => {
         if (i === 0) return 0;
@@ -519,14 +629,15 @@ function drawTextAlongPath(text, points, offset = 0, color = 'white') {
             ctx.save();
             ctx.translate(x, z);
             ctx.rotate(angle);
-            ctx.font = `${14 / zoom}px Arial`;
+            ctx.font = `${(isSelected ? 18 : 14) / zoom}px Arial`;
             ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
+            ctx.textBaseline = 'bottom'; // Przesunięcie nad linię
             ctx.strokeStyle = 'black';
             ctx.lineWidth = 2 / zoom;
-            ctx.strokeText(text, 0, 0);
+            let displayName = text.split('{')[0].trim();
+            ctx.strokeText(displayName, 0, -2 / zoom);
             ctx.fillStyle = color;
-            ctx.fillText(text, 0, 0);
+            ctx.fillText(displayName, 0, -2 / zoom);
             ctx.restore();
             return;
         }
@@ -582,7 +693,7 @@ function drawPolygons() {
             if (closePath && points.length > 2) ctx.closePath();
 
             ctx.fillStyle = (['terrain', 'station', 'intersection', 'pin'].includes(category) ? fillColor : 'transparent');
-            if (isSelected) ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+            if (isSelected && ['terrain', 'station', 'intersection', 'pin'].includes(category)) ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
             ctx.fill();
 
             ctx.strokeStyle = lineColor;
@@ -593,15 +704,20 @@ function drawPolygons() {
         }
 
         if (name && (['terrain', 'station', 'intersection', 'pin'].includes(category) || zoom > 3)) {
-            ctx.font = `${(isSelected ? 18 : 14) / zoom}px Arial`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            const [cx, cz] = category === 'pin' && points.length === 1 ? points[0] : calculateCentroid(points);
-            ctx.strokeStyle = 'black';
-            ctx.lineWidth = 2 / zoom;
-            ctx.strokeText(name, cx, cz - (category === 'pin' ? 15 / zoom : 0));
-            ctx.fillStyle = isSelected ? '#0f0' : 'white';
-            ctx.fillText(name, cx, cz - (category === 'pin' ? 15 / zoom : 0));
+            if (['road', 'rail'].includes(category) && points.length >= 2) {
+                drawTextAlongPath(name, points, 0, isSelected ? '#0f0' : 'white', isSelected);
+            } else {
+                ctx.font = `${(isSelected ? 18 : 14) / zoom}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                const [cx, cz] = category === 'pin' && points.length === 1 ? points[0] : calculateCentroid(points);
+                ctx.strokeStyle = 'black';
+                ctx.lineWidth = 2 / zoom;
+                let displayName = name.split('{')[0].trim();
+                ctx.strokeText(displayName, cx, cz - (category === 'pin' ? 15 / zoom : 0));
+                ctx.fillStyle = isSelected ? '#0f0' : 'white';
+                ctx.fillText(displayName, cx, cz - (category === 'pin' ? 15 / zoom : 0));
+            }
         }
     });
     ctx.restore();
@@ -638,6 +754,24 @@ function drawTempPolygon() {
     ctx.lineWidth = (['terrain', 'station', 'intersection'].includes(editorConfig.category) ? 3 / zoom : 6 / zoom);
     ctx.stroke();
 
+    // Rysowanie istniejących wyjść (stacja)
+    if (editorConfig.category === 'station') {
+        stationExits.forEach(([x, z]) => {
+            ctx.beginPath();
+            ctx.arc(x, z, 7 / zoom, 0, Math.PI * 2);
+            ctx.fillStyle = '#ff00ff';
+            ctx.fill();
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 2 / zoom;
+            ctx.stroke();
+        });
+    }
+
+    if (isAddingExits) {
+        ctx.restore();
+        return; 
+    }
+
     const drawPoints = editorConfig.category === 'intersection' ? (tempPoints.length ? [tempPoints[0]] : []) : tempPoints;
     drawPoints.forEach(([x, z], i) => {
         const isFirst = i === 0;
@@ -647,7 +781,7 @@ function drawTempPolygon() {
         let fill = (isFirst || (isLast && blink)) ? '#00ffff' : '#ff0000';
         if (editorConfig.category === 'station') {
             if (i === inPointIndex) fill = '#00ff00';
-            if (i === outPointIndex) fill = '#ff00ff';
+            if (outPointIndices.includes(i)) fill = '#ff00ff';
         }
         ctx.fillStyle = fill;
         ctx.fill();
@@ -691,8 +825,8 @@ function getConnectionPoints() {
     let points = [];
     polygons.forEach(p => {
         if (p.category === 'station') {
-            if (p.in) points.push({ pos: p.in[0], name: `${p.name}[in]`, category: p.category });
-            if (p.out) points.push({ pos: p.out[0], name: `${p.name}[out]`, category: p.category });
+            if (p.in) p.in.forEach(pos => points.push({ pos: pos, name: `${p.name}[in]`, category: p.category, color: p.lineColor }));
+            if (p.out) p.out.forEach(pos => points.push({ pos: pos, name: `${p.name}[out]`, category: p.category, color: p.lineColor }));
         } else if (p.category === 'intersection' && p.location) {
             points.push({ pos: p.location[0], name: p.name, category: p.category });
         }
@@ -744,10 +878,10 @@ function showPolyInfo(idx) {
     const pts = p.points || p.location || [];
     if (['terrain', 'station', 'intersection', 'pin'].includes(p.category)) {
         const area = Math.round(calculatePolygonArea(pts));
-        stats.textContent = `Pole: ${area} mÂ˛`;
+        stats.textContent = `Pole: ${formatNumber(area)} m\u00b2`;
     } else {
         const len = Math.round(calculatePathLength(pts));
-        stats.textContent = `DĹ‚ugoĹ›Ä‡: ${len} m`;
+        stats.textContent = `D\u0142ugo\u015b\u0107: ${formatNumber(len)} m`;
     }
 
     const authorsDiv = document.getElementById('info-poly-authors');
@@ -801,11 +935,12 @@ document.getElementById('pano-cube-container')?.addEventListener('pointerdown', 
     e.target.setPointerCapture(e.pointerId);
 });
 
-window.addEventListener('pointermove', (e) => {
+window.addEventListener('pointermove', e => {
+    if (isModalOpen()) return;
     if (!isPanoDragging) return;
     const dx = e.clientX - lastPanoX;
     const dy = e.clientY - lastPanoY;
-    // OdwrĂłcona oĹ› myszy (naturalna dla panoramy)
+    // Odwrócona oś myszy (naturalna dla panoramy)
     panoYaw -= dx * 0.15;
     panoPitch += dy * 0.15;
     panoPitch = Math.max(-85, Math.min(85, panoPitch));
@@ -818,7 +953,7 @@ window.addEventListener('pointerup', () => {
     isPanoDragging = false;
 });
 
-// ObsĹ‚uga zoomu
+// Obsługa zoomu
 document.getElementById('pano-cube-container')?.addEventListener('wheel', (e) => {
     e.preventDefault();
     panoZoom = Math.max(300, Math.min(2000, panoZoom + e.deltaY));
@@ -831,7 +966,7 @@ function panoAutoRotate() {
     if (!isPanoDragging && document.getElementById('pano-viewer-modal').style.display === 'flex') {
         const now = Date.now();
         const delta = (now - autoRotLastTime) / 1000;
-        panoYaw += delta * 2; // Wolny obrĂłt (2 stopnie na sekunde)
+        panoYaw += delta * 2; // Wolny obrót (2 stopnie na sekunde)
         updatePanoTransform();
     }
     autoRotLastTime = Date.now();
@@ -846,6 +981,41 @@ function closePolyInfo() {
 }
 
 function detectHover(x, y) {
+    if (isModalOpen()) return;
+    if (isAddingExits) {
+        hoverPoint = -1; hoverEdge = -1; edgePoint = null;
+        const [wx, wz] = screenToWorld(x, y);
+        // Sprawdź czy najeżdżamy na istniejące wyjście
+        for (let i = 0; i < stationExits.length; i++) {
+            const [ex, ez] = stationExits[i];
+            const [sx, sz] = worldToScreen(ex, ez);
+            if (Math.hypot(sx - x, sz - y) < 20) {
+                hoverPoint = i; 
+                return;
+            }
+        }
+        
+        // Szukaj najbliższej krawędzi do ewentualnego postawienia nowego wyjścia
+        if (tempPoints.length > 1) {
+            let minD = Infinity;
+            for (let i = 0; i < tempPoints.length; i++) {
+                const a = tempPoints[i];
+                const b = tempPoints[(i + 1) % tempPoints.length];
+                const { dist, x: px, z: pz } = pointDistanceToSegment(wx, wz, a[0], a[1], b[0], b[1]);
+                if (dist < minD) {
+                    minD = dist;
+                    edgePoint = { x: px, z: pz, edge: i };
+                }
+            }
+            if (minD < 30 / getPixelScale().scale) {
+                hoverEdge = edgePoint.edge;
+            } else {
+                edgePoint = null;
+                hoverEdge = -1;
+            }
+        }
+        return;
+    }
     hoverPoint = -1; hoverEdge = -1; edgePoint = null; hoverConnection = -1;
     const [wx, wz] = screenToWorld(x, y);
     if (isDrawing && editorConfig.category === 'rail' && selectingFrom) {
@@ -883,62 +1053,9 @@ function detectHover(x, y) {
     }
 }
 
-//obsĹ‚uga myszy i dotyku
+//obsługa myszy i dotyku
 canvas.addEventListener('pointerdown', e => {
-    if (e.button !== 0) return;
-    lastX = e.clientX; lastY = e.clientY;
-    clickStartTime = Date.now();
-    clickStartX = e.clientX; clickStartY = e.clientY;
-    clickWasOnPoint = false;
-    clickWasOnEdge = false;
-
-    if (isDrawing) {
-        detectHover(e.clientX, e.clientY);
-        if (hoverPoint !== -1) {
-            clickWasOnPoint = true;
-            isDraggingPoint = true;
-            draggedPointIndex = hoverPoint;
-            canvas.setPointerCapture(e.pointerId);
-            return;
-        }
-        if (hoverEdge !== -1 && edgePoint) {
-            clickWasOnEdge = true;
-            canvas.setPointerCapture(e.pointerId);
-            return;
-        }
-    }
-
-    isPanning = true;
-    panStart = { x: e.clientX, y: e.clientY, viewX, viewY };
-    canvas.setPointerCapture(e.pointerId);
-});
-
-canvas.addEventListener('pointermove', e => {
-    lastX = e.clientX; lastY = e.clientY;
-    if (isDraggingPoint && draggedPointIndex !== -1) {
-        let [wx, wz] = screenToWorld(e.clientX, e.clientY);
-        tempPoints[draggedPointIndex] = [Math.round(wx), Math.round(wz)];
-        updateRailInfo();
-        draw();
-        return;
-    }
-
-    if (isPanning) {
-        const ppb = getPixelScale().scale;
-        viewX = panStart.viewX - (e.clientX - panStart.x) / ppb;
-        viewY = panStart.viewY - (e.clientY - panStart.y) / ppb;
-        clampView();
-        draw();
-    }
-
-    if (isDrawing) {
-        detectHover(e.clientX, e.clientY);
-        draw();
-    }
-});
-
-//obsĹ‚uga myszy i dotyku
-canvas.addEventListener('pointerdown', e => {
+    if (isModalOpen()) return;
     if (e.button !== 0) return;
     lastX = e.clientX; lastY = e.clientY;
     clickStartTime = Date.now();
@@ -946,13 +1063,20 @@ canvas.addEventListener('pointerdown', e => {
 
     if (isDrawing) {
         detectHover(e.clientX, e.clientY);
-        if (hoverPoint !== -1) {
+        if (isAddingExits) {
+            if (hoverPoint !== -1) {
+                isDraggingExit = true;
+                draggedExitIndex = hoverPoint;
+                canvas.setPointerCapture(e.pointerId);
+                return;
+            }
+        } else if (hoverPoint !== -1) {
             isDraggingPoint = true;
             draggedPointIndex = hoverPoint;
             canvas.setPointerCapture(e.pointerId);
             return;
         }
-        if (hoverEdge !== -1 && edgePoint) {
+        if (!isAddingExits && hoverEdge !== -1 && edgePoint) {
             tempPoints.splice(hoverEdge + 1, 0, [Math.round(edgePoint.x), Math.round(edgePoint.z)]);
             isDraggingPoint = true;
             draggedPointIndex = hoverEdge + 1;
@@ -967,9 +1091,46 @@ canvas.addEventListener('pointerdown', e => {
 });
 
 canvas.addEventListener('pointermove', e => {
+    if (isModalOpen()) return;
     lastX = e.clientX; lastY = e.clientY;
+    if (isDraggingExit && draggedExitIndex !== -1) {
+        let [wx, wz] = screenToWorld(e.clientX, e.clientY);
+        if (tempPoints.length > 1) {
+            let minD = Infinity;
+            let bestX = wx, bestZ = wz;
+            for (let i = 0; i < tempPoints.length; i++) {
+                const a = tempPoints[i];
+                const b = tempPoints[(i + 1) % tempPoints.length];
+                const { dist, x: px, z: pz } = pointDistanceToSegment(wx, wz, a[0], a[1], b[0], b[1]);
+                if (dist < minD) {
+                    minD = dist;
+                    bestX = px; bestZ = pz;
+                }
+            }
+            stationExits[draggedExitIndex] = [Math.round(bestX), Math.round(bestZ)];
+        }
+        draw();
+        return;
+    }
+
     if (isDraggingPoint && draggedPointIndex !== -1) {
         let [wx, wz] = screenToWorld(e.clientX, e.clientY);
+        
+        // Snapping for railway lines
+        if (editorConfig.category === 'rail') {
+            const conn = getConnectionPoints();
+            let snapped = false;
+            for (const c of conn) {
+                const [cx, cz] = c.pos;
+                const dist = Math.hypot(wx - cx, wz - cz);
+                if (dist < 20 / zoom) {
+                    wx = cx; wz = cz;
+                    snapped = true;
+                    break;
+                }
+            }
+        }
+
         tempPoints[draggedPointIndex] = [Math.round(wx), Math.round(wz)];
         draw();
         return;
@@ -990,9 +1151,14 @@ canvas.addEventListener('pointermove', e => {
 });
 
 canvas.addEventListener('pointerup', e => {
+    if (isModalOpen()) return;
     const elapsed = Date.now() - clickStartTime;
     const dist = Math.hypot(e.clientX - clickStartX, e.clientY - clickStartY);
 
+    if (isDraggingExit) {
+        isDraggingExit = false;
+        draggedExitIndex = -1;
+    }
     if (isDraggingPoint) {
         isDraggingPoint = false;
         draggedPointIndex = -1;
@@ -1008,10 +1174,53 @@ canvas.addEventListener('pointerup', e => {
 
         if (isDrawing) {
             detectHover(e.clientX, e.clientY);
+            
+            if (isAddingExits) {
+                if (hoverPoint !== -1) {
+                    // Jeśli krótki klik i nie było dragu, to usuwamy (ale drag ma priorytet)
+                    if (dist < 5) stationExits.splice(hoverPoint, 1);
+                } else if (edgePoint) {
+                    stationExits.push([Math.round(edgePoint.x), Math.round(edgePoint.z)]);
+                }
+                draw();
+                return;
+            }
+
             if (hoverPoint !== -1) {
-                tempPoints.splice(hoverPoint, 1);
+                // Restrictions for railway lines
+                if (editorConfig.category === 'rail') {
+                    // Only allow deleting points in the middle?
+                    // Actually let's just keep it simple for now as requested.
+                    tempPoints.splice(hoverPoint, 1);
+                } else {
+                    tempPoints.splice(hoverPoint, 1);
+                }
             } else if (hoverEdge === -1) {
-                tempPoints.push([Math.round(wx), Math.round(wz)]);
+                let finalWX = wx, finalWZ = wz;
+                if (editorConfig.category === 'rail') {
+                    const conn = getConnectionPoints();
+                    for (const c of conn) {
+                        const [cx, cz] = c.pos;
+                        if (Math.hypot(wx - cx, wz - cz) < 20 / zoom) {
+                            finalWX = cx; finalWZ = cz;
+                            break;
+                        }
+                    }
+                }
+
+                if (['pin', 'intersection'].includes(editorConfig.category)) {
+                    tempPoints[0] = [Math.round(finalWX), Math.round(finalWZ)];
+                } else {
+                    // Restriction: if rail and has start and end, only allow adding points in between?
+                    // User said: "tylko początek / koniec lini (jeśli ktoś zrobi koniec i będzie chciał dalej ciągnąć linie to ma to być nei możliwe)"
+                    // This means if we already have 2 points and we are rail, we can't push?
+                    if (editorConfig.category === 'rail' && tempPoints.length >= 2) {
+                        // Don't add to ends
+                        console.log("Railway line already has start and end.");
+                    } else {
+                        tempPoints.push([Math.round(finalWX), Math.round(finalWZ)]);
+                    }
+                }
             }
             updateRailInfo();
             draw();
@@ -1024,13 +1233,28 @@ canvas.addEventListener('pointerup', e => {
                 if (p.temporary && !window.visibleTemporary) continue;
 
                 const pts = p.points || p.location || [];
-                if (isPointInPolygon(wx, wz, pts)) {
-                    foundIndices.push(i);
+                if (pts.length === 0) continue;
+
+                if (['pin', 'intersection'].includes(p.category) && pts.length === 1) {
+                    const distToPin = Math.hypot(wx - pts[0][0], wz - pts[0][1]);
+                    if (distToPin < 15 / getPixelScale().scale) foundIndices.push(i);
+                } else if (p.closePath && pts.length >= 3) {
+                    if (isPointInPolygon(wx, wz, pts)) foundIndices.push(i);
+                } else {
+                    let onPath = false;
+                    for (let j = 0; j < pts.length - 1; j++) {
+                        const { dist } = pointDistanceToSegment(wx, wz, pts[j][0], pts[j][1], pts[j+1][0], pts[j+1][1]);
+                        if (dist <= 15 / getPixelScale().scale) {
+                            onPath = true;
+                            break;
+                        }
+                    }
+                    if (onPath) foundIndices.push(i);
                 }
             }
 
             if (foundIndices.length > 0) {
-                // JeĹ›li aktualnie wybrany poligon jest w liĹ›cie znalezionych, wybierz nastÄ™pny (cykl)
+                // Jeśli aktualnie wybrany poligon jest w liście znalezionych, wybierz następny (cykl)
                 let currentPos = foundIndices.indexOf(selectedPolygonIndex);
                 let nextIdx = foundIndices[(currentPos + 1) % foundIndices.length];
                 showPolyInfo(nextIdx);
@@ -1041,8 +1265,9 @@ canvas.addEventListener('pointerup', e => {
     }
 });
 
-//zoom koĹ‚em i dotykiem
+//zoom kołem i dotykiem
 canvas.addEventListener('wheel', e => {
+    if (isModalOpen()) return;
     e.preventDefault();
     const rect = canvas.getBoundingClientRect();
     const mx = e.clientX - rect.left;
@@ -1051,7 +1276,7 @@ canvas.addEventListener('wheel', e => {
     const worldX = viewX + (mx - innerWidth / 2) / oldPpb;
     const worldZ = viewY + (my - innerHeight / 2) / oldPpb;
 
-    // Krzywa wykĹ‚adnicza zoomu
+    // Krzywa wykładnicza zoomu
     const zoomFactor = 1.15;
     if (e.deltaY < 0) zoom = Math.min(40, zoom * zoomFactor);
     else zoom = Math.max(0.1, zoom / zoomFactor);
@@ -1066,6 +1291,7 @@ canvas.addEventListener('wheel', e => {
 
 let lastDist = 0;
 canvas.addEventListener('touchstart', e => {
+    if (isModalOpen()) return;
     if (e.touches.length === 2) {
         const t1 = e.touches[0], t2 = e.touches[1];
         lastDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
@@ -1073,6 +1299,7 @@ canvas.addEventListener('touchstart', e => {
 }, { passive: false });
 
 canvas.addEventListener('touchmove', e => {
+    if (isModalOpen()) return;
     if (e.touches.length === 2) {
         e.preventDefault();
         const t1 = e.touches[0], t2 = e.touches[1];
@@ -1095,26 +1322,6 @@ canvas.addEventListener('touchmove', e => {
     }
 }, { passive: false });
 
-//pomocnicze
-function editPolygon(idx) {
-    const p = polygons[idx];
-    selectedPolygonIndex = idx;
-    isDrawing = true;
-    tempPoints = JSON.parse(JSON.stringify(p.points || p.location || []));
-    editorConfig = { ...p };
-
-    // OtwĂłrz odpowiedni panel
-    if (['terrain', 'road', 'pin'].includes(p.category)) {
-        if (editorPanel) editorPanel.style.display = 'block';
-    } else {
-        if (railEditorPanel) railEditorPanel.style.display = 'block';
-    }
-
-    if (openAddMenuBtn) openAddMenuBtn.style.display = 'none';
-    if (editModeBtn) editModeBtn.style.display = 'block';
-
-    draw();
-}
 
 function clampView() {
     viewX = Math.max(-WORLD_SIZE, Math.min(WORLD_SIZE, viewX));
@@ -1149,7 +1356,7 @@ function savePolygon() {
     let minPoints = editorConfig.closePath ? 3 : 2;
     if (editorConfig.category === 'intersection' || editorConfig.category === 'pin') minPoints = 1;
     if (tempPoints.length < minPoints) {
-        alert("Za maĹ‚o punktĂłw! Minimum " + minPoints + ".");
+        alert("Za mało punktów! Minimum " + minPoints + ".");
         return;
     }
     if (editorConfig.category === 'pin' && tempPoints.length > 1) {
@@ -1157,7 +1364,7 @@ function savePolygon() {
     }
     // Usunieto blokade nazw
     if (editorConfig.category === 'station' && !editorConfig.name) {
-        alert('Nazwa obowiÄ…zkowa!');
+        alert('Nazwa obowiązkowa!');
         return;
     }
     if (editorConfig.category === 'intersection' && !editorConfig.name) {
@@ -1169,63 +1376,65 @@ function savePolygon() {
         delete poly.points;
     }
     if (editorConfig.category === 'station') {
-        if (inPointIndex !== -1) poly.in = [tempPoints[inPointIndex]];
-        if (outPointIndex !== -1) poly.out = [tempPoints[outPointIndex]];
+        if (stationExits.length > 0) poly.out = stationExits;
     }
     if (editorConfig.category === 'rail') {
         poly.from = editorConfig.from;
         poly.to = editorConfig.to;
     }
-    // Pobierz autorĂłw z checkboxĂłw
-    const checkboxes = document.querySelectorAll('#polyAuthorsList input:checked');
-    poly.authors = Array.from(checkboxes).map(cb => cb.value);
-    if (poly.authors.length === 0 && currentUser) poly.authors = [currentUser.nick];
+    // Pobierz autorów z checkboxów (zależnie od edytora)
+    const activePanel = (editorPanel.style.display === 'block') ? '#polyAuthorsList' : '#railAuthorsList';
+    const checkboxes = document.querySelectorAll(activePanel + ' input:checked');
+    let selAuthors = Array.from(checkboxes).map(cb => cb.value);
+    // Zachowaj obecnych autorów jeśli nie wybrano żadnych nowych (bezpiecznik)
+    if (selAuthors.length === 0 && isEditing && selectedPolygonIndex !== -1) {
+        selAuthors = polygons[selectedPolygonIndex].authors || [];
+    }
+    // Jeśli nadal brak i to nowy poligon, ustaw aktualnego użytkownika
+    if (selAuthors.length === 0 && currentUser) selAuthors = [currentUser.nick];
+    poly.authors = selAuthors;
 
     poly.author = poly.authors[0] || "Nieznany";
 
-    if (selectedPolygonIndex !== -1) {
-        logChange("Edycja", poly);
-        polygons[selectedPolygonIndex] = poly;
-    } else {
-        logChange("Dodanie", poly);
-        polygons.push(poly);
-    }
-
-    let fullCode = '{\n';
-    if (poly.location) {
-        fullCode += ' location: ' + JSON.stringify(poly.location) + ',\n';
-    } else {
-        fullCode += ' points: ' + JSON.stringify(tempPoints) + ',\n';
-    }
-    fullCode += ' lineColor: "' + poly.lineColor + '",\n';
-    fullCode += ' fillColor: "' + poly.fillColor + '",\n';
-    fullCode += ' closePath: ' + poly.closePath + ',\n';
-    if (poly.name) fullCode += ' name: "' + poly.name + '",\n';
-    if (poly.opis) fullCode += ' opis: "' + poly.opis.replace(/"/g, '\\"') + '",\n';
-    fullCode += ' category: "' + poly.category + '",\n';
-    if (poly.temporary) fullCode += ' temporary: ' + poly.temporary + ',\n';
-    if (poly.in) fullCode += ' in: ' + JSON.stringify(poly.in) + ',\n';
-    if (poly.out) fullCode += ' out: ' + JSON.stringify(poly.out) + ',\n';
-    if (poly.from) fullCode += ' from: "' + poly.from + '",\n';
-    if (poly.to) fullCode += ' to: "' + poly.to + '",\n';
-    if (poly.authors) fullCode += ' authors: ' + JSON.stringify(poly.authors) + ',\n';
-    fullCode += '},';
-
+    // Zamiast od razu zapisywać, otwórz modal potwierdzenia z kodem
+    window.tempPolyToSave = poly;
+    document.getElementById('code-modal').style.display = 'block';
+    document.body.classList.add('modal-active');
     codeText.value = formatPolygon(poly);
-    codeModal.style.display = 'block';
-    notifyChange(poly.authors);
-    window.tempPoly = poly;
-    draw();
+}
+
+if (document.getElementById('confirm-save-btn')) {
+    document.getElementById('confirm-save-btn').onclick = () => {
+        if (window.tempPolyToSave) {
+            const poly = window.tempPolyToSave;
+            if (selectedPolygonIndex !== -1) {
+                logChange("Edycja", poly);
+                polygons[selectedPolygonIndex] = poly;
+                isEditing = false;
+                selectedPolygonIndex = -1;
+                hoverPoint = -1;
+            } else {
+                logChange("Dodanie", poly);
+                polygons.push(poly);
+            }
+            notifyChange(poly.authors);
+            document.getElementById('code-modal').style.display = 'none';
+            document.body.classList.remove('modal-active');
+            finalizeSave(true);
+            window.tempPolyToSave = null;
+            draw();
+        }
+    };
 }
 
 function finalizeSave(add) {
     isDrawing = false;
     tempPoints = [];
     selectingFrom = false;
-    settingIn = false;
-    settingOut = false;
-    inPointIndex = -1;
-    outPointIndex = -1;
+    stationExits = [];
+    isAddingExits = false;
+    const exitBtn = document.getElementById('rail-add-exit-btn');
+    if (exitBtn) exitBtn.textContent = 'DODAJ WYJŚCIA';
     isStartSnapped = false;
     isEndSnapped = false;
     railStationButtons.style.display = 'none';
@@ -1236,13 +1445,12 @@ function finalizeSave(add) {
     if (openAddMenuBtn) openAddMenuBtn.style.display = 'block';
     editModeBtn.style.display = 'none';
     selectedPolygonIndex = -1;
-    window.hasUnsavedChanges = false;
 }
 
-// OstrzeĹĽenie przed wyjĹ›ciem
+// Ostrze\u017cenie przed wyj\u015bciem
 window.onbeforeunload = function () {
     if (window.hasUnsavedChanges || isDrawing) {
-        return "Masz niezapisane zmiany! Czy na pewno chcesz wyjĹ›Ä‡?";
+        return "Masz niezapisane zmiany! Czy na pewno chcesz wyj\u015b\u0107?";
     }
 };
 
@@ -1250,13 +1458,13 @@ window.onbeforeunload = function () {
 document.getElementById('quickSaveBtn').addEventListener('click', savePolygon);
 document.getElementById('railQuickSaveBtn').addEventListener('click', savePolygon);
 
-// ObsĹ‚uga Zegara Historii
+// Obsługa Zegara Historii
 document.getElementById('history-clock').addEventListener('click', () => {
     const panel = document.getElementById('history-panel');
     panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
 });
 
-// ObsĹ‚uga PorĂłwnywarki
+// Obsługa Porównywarki
 let isComparing = false;
 const compareHandle = document.getElementById('compare-handle');
 const beforeWrapper = document.getElementById('img-before-wrapper');
@@ -1511,7 +1719,7 @@ if (startDrawingBtn) {
             inPointIndex = -1;
             outPointIndex = -1;
             canvas.style.cursor = 'crosshair';
-            info.textContent = 'Klik=dodaj | klik punkt=usuĹ„ | przytrzymaj=przesuĹ„';
+            info.textContent = 'Klik=dodaj | klik punkt=usu\u0144 | przytrzymaj=przesu\u0144';
             if (openBtn) openBtn.style.display = 'none';
             if (openRailBtn) openRailBtn.style.display = 'none';
             if (editModeBtn) editModeBtn.style.display = 'block';
@@ -1529,7 +1737,7 @@ if (railStartDrawing) {
             isDrawing = true;
             tempPoints = [];
             inPointIndex = -1;
-            outPointIndex = -1;
+            outPointIndices = [];
             if (editorConfig.category === 'rail') {
                 selectingFrom = true;
                 if (railInfo) {
@@ -1538,7 +1746,7 @@ if (railStartDrawing) {
                 }
             }
             canvas.style.cursor = 'crosshair';
-            info.textContent = 'Klik=dodaj | klik punkt=usuĹ„ | przytrzymaj=przesuĹ„';
+            info.textContent = 'Klik=dodaj | klik punkt=usu\u0144 | przytrzymaj=przesu\u0144';
             if (openBtn) openBtn.style.display = 'none';
             if (openRailBtn) openRailBtn.style.display = 'none';
             if (editModeBtn) editModeBtn.style.display = 'block';
@@ -1553,27 +1761,24 @@ if (editModeBtn) {
     editModeBtn.addEventListener('click', () => {
         if (['terrain', 'road'].includes(editorConfig.category)) {
             editorPanel.style.display = 'block';
-            if (startDrawingBtn) startDrawingBtn.textContent = 'ZAKOĹCZ RYSOWANIE';
+            if (startDrawingBtn) startDrawingBtn.textContent = 'ZAKO\u0143CZ RYSOWANIE';
         } else {
             if (railEditorPanel) railEditorPanel.style.display = 'block';
-            if (railStartDrawing) railStartDrawing.textContent = 'ZAKOĹCZ RYSOWANIE';
+            if (railStartDrawing) railStartDrawing.textContent = 'ZAKO\u0143CZ RYSOWANIE';
         }
     });
 }
 
-if (railAddInBtn) {
-    railAddInBtn.addEventListener('click', () => {
-        settingIn = true;
-        settingOut = false;
-        canvas.style.cursor = 'pointer';
-    });
-}
-
-if (railAddOutBtn) {
-    railAddOutBtn.addEventListener('click', () => {
-        settingIn = false;
-        settingOut = true;
-        canvas.style.cursor = 'pointer';
+const railAddExitBtn = document.getElementById('rail-add-exit-btn');
+if (railAddExitBtn) {
+    railAddExitBtn.addEventListener('click', () => {
+        isAddingExits = !isAddingExits;
+        railAddExitBtn.textContent = isAddingExits ? 'ZAKOŃCZ DOD. WYJŚĆ' : 'DODAJ WYJŚCIA';
+        canvas.style.cursor = isAddingExits ? 'crosshair' : 'crosshair';
+        if (isAddingExits) {
+            alert('Tryb dodawania wyjść: Kliknij wewnątrz stacji, aby dodać/usunąć wyjście.');
+        }
+        draw();
     });
 }
 
@@ -1589,10 +1794,27 @@ if (copyBtn) {
     });
 }
 
+const showCodeBtn = document.getElementById('show-code-btn');
+
+if (showCodeBtn) {
+    showCodeBtn.addEventListener('click', () => {
+        const text = document.getElementById('code-text');
+        if (text.style.display === 'none') {
+            text.style.display = 'block';
+            showCodeBtn.textContent = 'UKRYJ KOD';
+        } else {
+            text.style.display = 'none';
+            showCodeBtn.textContent = 'POKAŻ KOD';
+        }
+    });
+}
+
 if (closeModalBtn) {
     closeModalBtn.addEventListener('click', () => {
         codeModal.style.display = 'none';
-        finalizeSave(true);
+        document.body.classList.remove('modal-active');
+        document.getElementById('code-text').style.display = 'none';
+        if (showCodeBtn) showCodeBtn.textContent = 'POKAŻ KOD';
     });
 }
 
@@ -1605,11 +1827,11 @@ if (returnBtn) {
     });
 }
 
-// ObsĹ‚uga NOWEGO MENU DODAWANIA
+// Obsługa NOWEGO MENU DODAWANIA
 if (openAddMenuBtn) {
     openAddMenuBtn.addEventListener('click', () => {
         if (isDrawing || isEditing) {
-            alert('ZakoĹ„cz obecne rysowanie/edycjÄ™ przed dodaniem nowego elementu!');
+            alert('Zako\u0143cz obecne rysowanie/edycj\u0119 przed dodaniem nowego elementu!');
             return;
         }
         addMenuPanel.style.display = 'block';
@@ -1652,6 +1874,8 @@ function startNewPolygon(cat) {
     isDrawing = true;
     isEditing = false;
     tempPoints = [];
+    stationExits = [];
+    isAddingExits = false;
     selectedPolygonIndex = -1;
 
     editorConfig = {
@@ -1672,12 +1896,14 @@ function startNewPolygon(cat) {
     if (['terrain', 'road', 'pin'].includes(cat)) {
         editorPanel.style.display = 'block';
         railEditorPanel.style.display = 'none';
+        if (document.getElementById('poly-category-label')) document.getElementById('poly-category-label').textContent = cat.toUpperCase();
         document.getElementById('polyName').value = '';
-        document.getElementById('polyDesc').value = '';
+        if (document.getElementById('polyDesc')) document.getElementById('polyDesc').value = '';
         document.getElementById('poly-add-photo-btn').style.display = (cat === 'pin' ? 'block' : 'none');
     } else {
         railEditorPanel.style.display = 'block';
         editorPanel.style.display = 'none';
+        railStationButtons.style.display = cat === 'station' ? 'block' : 'none';
         document.getElementById('rail-polyName').value = '';
         document.getElementById('rail-polyDesc').value = '';
         if (railCategory) railCategory.textContent = cat.toUpperCase();
@@ -1688,32 +1914,49 @@ function startNewPolygon(cat) {
     draw();
 }
 
-// Przyciski POWRĂ“T w edytorach
+// Anulowanie rysowania
+function cancelDrawingMode() {
+    if (editorPanel) editorPanel.style.display = 'none';
+    if (railEditorPanel) railEditorPanel.style.display = 'none';
+    isDrawing = false;
+    isEditing = false;
+    tempPoints = [];
+    selectedPolygonIndex = -1;
+    draw();
+}
+
+document.getElementById('cancelDrawing')?.addEventListener('click', cancelDrawingMode);
+document.getElementById('cancelRailDrawing')?.addEventListener('click', cancelDrawingMode);
+
+// Przyciski POWRÓT w edytorach
 document.getElementById('back-to-menu-terrain')?.addEventListener('click', () => {
-    editorPanel.style.display = 'none';
+    cancelDrawingMode();
     addMenuPanel.style.display = 'block';
     addMenuMain.style.display = 'flex';
-    isDrawing = false;
-    tempPoints = [];
-    draw();
+});
+document.getElementById('back-to-menu-rail')?.addEventListener('click', () => {
+    cancelDrawingMode();
+    addMenuPanel.style.display = 'block';
+    addMenuMain.style.display = 'none';
+    addMenuRail.style.display = 'flex';
 });
 
-// Auto-odĹ›wieĹĽanie (co 0.5s) dla animacji Ĺ‚adowania
+// Auto-odświeżanie (co 0.5s) dla animacji ładowania
 setInterval(() => {
-    // interval teraz tylko wymusza sprawdzenie, ale animationLoop i tak dziaĹ‚a w 60fps
-    // jeĹ›li potrzebujemy oszczÄ™dzaÄ‡ energiÄ™, moĹĽemy wrĂłciÄ‡ do needsRedraw, 
-    // ale dla pĹ‚ynnego fade-inu 60fps jest lepsze.
+    // interval teraz tylko wymusza sprawdzenie, ale animationLoop i tak działa w 60fps
+    // jeśli potrzebujemy oszczędzać energię, możemy wrócić do needsRedraw, 
+    // ale dla płynnego fade-inu 60fps jest lepsze.
 }, 500);
 
-// Przyciski DODAJ ZDJÄCIE
+// Przyciski DODAJ ZDJĘCIE
 document.getElementById('poly-add-photo-btn')?.addEventListener('click', () => {
-    alert('Funkcja dodawania zdjÄ™Ä‡ (wkrĂłtce)');
+    alert('Funkcja dodawania zdjęć (wkrótce)');
 });
 document.getElementById('rail-add-photo-btn')?.addEventListener('click', () => {
-    alert('Funkcja dodawania zdjÄ™Ä‡ (wkrĂłtce)');
+    alert('Funkcja dodawania zdjęć (wkrótce)');
 });
 
-// PrzeĹ‚Ä…czniki widocznoĹ›ci
+// Przełączniki widoczności
 document.querySelectorAll('#category-toggle .toggle-btn').forEach(btn => {
     btn.addEventListener('click', () => {
         if (btn.dataset.cat) {
@@ -1736,14 +1979,15 @@ function editPolygon(idx) {
     isEditing = true;
     tempPoints = JSON.parse(JSON.stringify(p.points || p.location || []));
 
-    editorConfig = { ...p, authors: p.authors || (p.author ? [p.author] : []) };
+    editorConfig = { ...p, authors: parseAuthors(p) };
 
     if (['terrain', 'road', 'pin'].includes(p.category)) {
         if (editorPanel) editorPanel.style.display = 'block';
         if (railEditorPanel) railEditorPanel.style.display = 'none';
-        document.getElementById('polyName').value = p.name || '';
-        document.getElementById('polyDesc').value = p.opis || '';
-        document.getElementById('lineColor').value = p.lineColor || '#00ff00';
+        if (document.getElementById('poly-category-label')) document.getElementById('poly-category-label').textContent = p.category.toUpperCase();
+        if (document.getElementById('polyName')) document.getElementById('polyName').value = p.name || '';
+        if (document.getElementById('polyDesc')) document.getElementById('polyDesc').value = p.opis || '';
+        if (document.getElementById('lineColor')) document.getElementById('lineColor').value = p.lineColor || '#00ff00';
         if (document.getElementById('fillColor')) {
             document.getElementById('fillColor').value = p.fillColor ? p.fillColor.substring(0, 7) : '#00ff00';
         }
@@ -1753,25 +1997,39 @@ function editPolygon(idx) {
         if (document.getElementById('temporaryToggle')) {
             document.getElementById('temporaryToggle').checked = p.temporary;
         }
-        document.getElementById('deletePolyBtn').style.display = 'block';
-        document.getElementById('poly-add-photo-btn').style.display = (p.category === 'pin' ? 'block' : 'none');
+        
+        // Aktualizacja checkboxów autorów (pełne nadpisanie)
+        const polyAuthors = parseAuthors(p);
+        const checkboxes = document.querySelectorAll('#polyAuthorsList input');
+        checkboxes.forEach(cb => {
+            cb.checked = polyAuthors.includes(cb.value);
+        });
+
+        if (document.getElementById('deletePolyBtn')) document.getElementById('deletePolyBtn').style.display = 'block';
+        if (document.getElementById('poly-add-photo-btn')) document.getElementById('poly-add-photo-btn').style.display = (p.category === 'pin' ? 'block' : 'none');
     } else {
         if (railEditorPanel) railEditorPanel.style.display = 'block';
         if (editorPanel) editorPanel.style.display = 'none';
-        document.getElementById('rail-polyName').value = p.name || '';
-        document.getElementById('rail-polyDesc').value = p.opis || '';
-        document.getElementById('rail-lineColor').value = p.lineColor || '#00ff00';
+        if (document.getElementById('rail-polyName')) document.getElementById('rail-polyName').value = p.name || '';
+        if (document.getElementById('rail-polyDesc')) document.getElementById('rail-polyDesc').value = p.opis || '';
+        if (document.getElementById('rail-lineColor')) document.getElementById('rail-lineColor').value = p.lineColor || '#00ff00';
         if (document.getElementById('rail-temporaryToggle')) {
             document.getElementById('rail-temporaryToggle').checked = p.temporary;
         }
-        document.getElementById('railDeletePolyBtn').style.display = 'block';
-        document.getElementById('rail-add-photo-btn').style.display = (p.category === 'station' ? 'block' : 'none');
-    }
+        if (document.getElementById('railDeletePolyBtn')) document.getElementById('railDeletePolyBtn').style.display = 'block';
+        if (document.getElementById('rail-add-photo-btn')) document.getElementById('rail-add-photo-btn').style.display = (p.category === 'station' ? 'block' : 'none');
+        if (railStationButtons) railStationButtons.style.display = p.category === 'station' ? 'block' : 'none';
+        const polyAuthors = parseAuthors(p);
+        const checkboxes = document.querySelectorAll('#railAuthorsList input');
+        checkboxes.forEach(cb => {
+            cb.checked = polyAuthors.includes(cb.value);
+        });
 
-    const checkboxes = document.querySelectorAll('#polyAuthorsList input');
-    checkboxes.forEach(cb => {
-        cb.checked = editorConfig.authors.includes(cb.value);
-    });
+        // Load station points
+        if (p.category === 'station') {
+            stationExits = p.out ? JSON.parse(JSON.stringify(p.out)) : [];
+        }
+    }
 
     document.getElementById('poly-info-panel').style.display = 'none';
     canvas.style.cursor = 'crosshair';
@@ -1780,21 +2038,26 @@ function editPolygon(idx) {
 
 function deletePolygon(idx) {
     if (idx === -1) return;
-    if (!confirm('Czy na pewno chcesz usunÄ…Ä‡ ten element?')) return;
+    showCustomConfirm('Czy na pewno chcesz usun\u0105\u0107 ten element?', () => {
+        const p = polygons[idx];
+        logChange('USUWANIE', p);
+        notifyChange(p.authors || ["Nieznany"]);
+        polygons.splice(idx, 1);
 
-    const p = polygons[idx];
-    logChange('USUWANIE', p);
-    notifyChange(p.authors || ["Nieznany"]);
-    polygons.splice(idx, 1);
-
-    finalizeSave(true);
-    closePolyInfo();
-    alert('USUNIÄTO!');
+        finalizeSave(true);
+        closePolyInfo();
+    });
 }
 
 if (document.getElementById('edit-poly-btn')) {
     document.getElementById('edit-poly-btn').addEventListener('click', () => {
         if (selectedPolygonIndex !== -1) editPolygon(selectedPolygonIndex);
+    });
+}
+
+if (document.getElementById('info-poly-delete-btn')) {
+    document.getElementById('info-poly-delete-btn').addEventListener('click', () => {
+        if (selectedPolygonIndex !== -1) deletePolygon(selectedPolygonIndex);
     });
 }
 
@@ -1810,17 +2073,80 @@ if (document.getElementById('railDeletePolyBtn')) {
     document.getElementById('railDeletePolyBtn').addEventListener('click', () => deletePolygon(selectedPolygonIndex));
 }
 
+function drawStationInternalLines() {
+    ctx.save();
+    ctx.scale(pixelRatio, pixelRatio);
+    const { scale: ppb } = getPixelScale();
+    const cx = innerWidth / 2, cy = innerHeight / 2;
+    ctx.translate(cx, cy);
+    ctx.scale(ppb, ppb);
+    ctx.translate(-viewX, -viewY);
+
+    polygons.forEach(p => {
+        if (p.category === 'station' && p.out && p.out.length > 1) {
+            // Znajdź połączenia dla każdego OUT
+            const outConnections = p.out.map(pos => {
+                // Szukamy linii kolejowej, która zaczyna się lub kończy w tym punkcie
+                const connectedLine = polygons.find(poly => {
+                    if (poly.category !== 'rail') return false;
+                    const pts = poly.points || [];
+                    if (pts.length < 2) return false;
+                    const start = pts[0], end = pts[pts.length - 1];
+                    return (Math.hypot(start[0] - pos[0], start[1] - pos[1]) < 1) || 
+                           (Math.hypot(end[0] - pos[0], end[1] - pos[1]) < 1);
+                });
+                return { pos, color: connectedLine ? connectedLine.lineColor : p.lineColor };
+            });
+
+            // Rysuj linie między wszystkimi parami OUT, które mają połączenia
+            for (let i = 0; i < outConnections.length; i++) {
+                for (let j = i + 1; j < outConnections.length; j++) {
+                    const c1 = outConnections[i];
+                    const c2 = outConnections[j];
+                    
+                    // Rysujemy tylko jeśli oba punkty są "używane" (lub zawsze?)
+                    // Użytkownik napisał: "jeśli do obu out są dociągnięte linie kolejowe"
+                    
+                    const isC1Connected = polygons.some(poly => poly.category === 'rail' && (poly.points||[]).some(pt => Math.hypot(pt[0]-c1.pos[0], pt[1]-c1.pos[1]) < 1));
+                    const isC2Connected = polygons.some(poly => poly.category === 'rail' && (poly.points||[]).some(pt => Math.hypot(pt[0]-c2.pos[0], pt[1]-c2.pos[1]) < 1));
+
+                    if (isC1Connected && isC2Connected) {
+                        ctx.beginPath();
+                        ctx.moveTo(c1.pos[0], c1.pos[1]);
+                        ctx.lineTo(c2.pos[0], c2.pos[1]);
+                        
+                        const grad = ctx.createLinearGradient(c1.pos[0], c1.pos[1], c2.pos[0], c2.pos[1]);
+                        grad.addColorStop(0, c1.color);
+                        grad.addColorStop(1, c2.color);
+                        
+                        ctx.strokeStyle = grad;
+                        ctx.lineWidth = 6 / zoom;
+                        ctx.stroke();
+                    }
+                }
+            }
+        }
+    });
+    ctx.restore();
+}
+
 function draw() {
     needsRedraw = true;
 }
 
 function animationLoop() {
-    needsRedraw = false;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = '#111';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Safety check for panel visibility
+    if (!isDrawing && !isEditing) {
+        if (editorPanel && editorPanel.style.display !== 'none') editorPanel.style.display = 'none';
+        if (railEditorPanel && railEditorPanel.style.display !== 'none') railEditorPanel.style.display = 'none';
+        if (openAddMenuBtn && openAddMenuBtn.style.display === 'none' && !isModalOpen()) openAddMenuBtn.style.display = 'block';
+    }
+
     drawTiles();
     drawPolygons();
+    drawStationInternalLines();
     drawTempPolygon();
 
     if (isDrawing && editorConfig.category === 'rail') {

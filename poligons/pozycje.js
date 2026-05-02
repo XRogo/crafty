@@ -8,7 +8,7 @@ window.registerPolygons([
         closePath: true,
         name: 'Neressia/maku?',
         category: 1,
-        authors: ["Neressia", "Maku"]
+        authors: ["Neressia", "MacKrater"]
     },
     //Baza Neressia Maku
     {
@@ -20,17 +20,7 @@ window.registerPolygons([
         closePath: true,
         name: 'Baza Neressia/Maku',
         category: 1,
-        authors: ["Neressia", "Maku"]
-    },
-    {
-        number: 21,
-        points: [[51, -24], [47, -16], [48, -6], [50, 3], [58, 8], [68, 8], [71, 2], [72, -6], [82, -7], [82, -19], [72, -20], [63, -25]],
-        lineColor: 'rgba(128, 0, 255, 1)',
-        fillColor: 'rgba(128, 0, 255, 0.2)',
-        closePath: true,
-        name: 'Ozzy Dasikor',
-        category: 1,
-        authors: ["ozzy", "dasikor"]
+        authors: ["Neressia", "MacKrater"]
     },
     {
         points: [[262, 434], [149, 432], [119, 454], [95, 465], [84, 483], [84, 503], [86, 528], [103, 564], [131, 605], [168, 625], [229, 626], [262, 604], [273, 550], [284, 453]],
@@ -39,6 +29,15 @@ window.registerPolygons([
         closePath: true,
         name: "Podwodne miasto dasikora.",
         category: "terrain",
-        authors: ["Dasikor", "OzzI"],
+        authors: ["Dasikor", "K_O_Ozzy"],
+    },
+    {
+        points: [[51, -24], [47, -16], [48, -6], [50, 3], [58, 8], [68, 8], [71, 2], [72, -6], [82, -7], [82, -19], [72, -20], [63, -25]],
+        lineColor: "rgba(128, 0, 255, 1)",
+        fillColor: "rgba(128, 0, 255, 0.2)",
+        closePath: true,
+        name: "Ozzy Dasikor",
+        category: "terrain",
+        authors: ["Dasikor", "K_O_Ozzy", "PiterPanMis"]
     },
 ]);

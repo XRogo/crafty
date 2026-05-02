@@ -133,7 +133,7 @@ window.registerPolygons([
         name: "Stacja główna",
         opis: "Z tąd dojedziesz wszędzie",
         category: "station",
-        out: [[176, -51]],
+        nodes: [[176, -51]],
     },
     {
         points: [[20, 47], [20, 50], [20, 54], [45, 54], [45, 50], [45, 47]],
@@ -142,8 +142,7 @@ window.registerPolygons([
         closePath: true,
         name: "Stacja Ozzy",
         category: "station",
-        in: [[20, 50]],
-        out: [[45, 50]],
+        nodes: [[20, 50], [45, 50]],
     },
     {
         points: [[-330, -1348], [-322, -1250], [-290, -1077], [-234, -996], [-158, -967], [-22, -966], [81, -1029], [118, -1128], [200, -1216], [210, -1316], [204, -1408], [157, -1479], [93, -1517], [-18, -1539], [-231, -1498], [-290, -1430]],

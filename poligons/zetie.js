@@ -17,7 +17,6 @@
         name: "Stacja Zetie",
         opis: "Stacja do bazy Zetiego",
         category: "station",
-        in: [[-255, -113]],
-        out: [[-255, -53]],
+        out: [[-255, -113], [-255, -53]],
     },
 ]);
