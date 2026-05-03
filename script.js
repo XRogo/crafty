@@ -29,13 +29,20 @@ let isEditing = false;
 let needsRedraw = true;
 let isDraggingExit = false;
 let draggedExitIndex = -1;
+let originalAuthors = []; // Śledzenie autorów przed edycją
 window.hasUnsavedChanges = false;
 window.dirtyAuthors = new Set();
 
 function notifyChange(authors) {
     window.hasUnsavedChanges = true;
-    if (authors) {
-        authors.forEach(a => window.dirtyAuthors.add(a));
+    if (authors && authors.length > 0) {
+        if (authors.length > 1) {
+            window.dirtyAuthors.add("Mixed");
+        } else {
+            window.dirtyAuthors.add(authors[0]);
+        }
+    } else {
+        window.dirtyAuthors.add("Public");
     }
     const btn = document.getElementById('submit-changes-btn');
     if (btn) btn.style.display = 'block';
@@ -1477,6 +1484,7 @@ function savePolygon() {
 
     // Zamiast od razu zapisywać, otwórz modal potwierdzenia z kodem
     window.tempPolyToSave = poly;
+    window.tempOriginalAuthors = originalAuthors; // Przekaż do zatwierdzenia
     document.getElementById('code-modal').style.display = 'block';
     document.body.classList.add('modal-active');
     codeText.value = formatPolygon(poly);
@@ -1486,6 +1494,8 @@ if (document.getElementById('confirm-save-btn')) {
     document.getElementById('confirm-save-btn').onclick = () => {
         if (window.tempPolyToSave) {
             const poly = window.tempPolyToSave;
+            const oldAuthors = window.tempOriginalAuthors || [];
+            
             if (selectedPolygonIndex !== -1) {
                 logChange("Edycja", poly);
                 polygons[selectedPolygonIndex] = poly;
@@ -1496,11 +1506,17 @@ if (document.getElementById('confirm-save-btn')) {
                 logChange("Dodanie", poly);
                 polygons.push(poly);
             }
+
+            // Powiadom o zmianie dla STARYCH i NOWYCH autorów
+            // To zapewni, że oba pliki (stary i nowy) zostaną zaktualizowane
+            notifyChange(oldAuthors);
             notifyChange(poly.authors);
+
             document.getElementById('code-modal').style.display = 'none';
             document.body.classList.remove('modal-active');
             finalizeSave(true);
             window.tempPolyToSave = null;
+            window.tempOriginalAuthors = null;
             draw();
         }
     };
@@ -2103,7 +2119,9 @@ function editPolygon(idx) {
     isEditing = true;
     tempPoints = JSON.parse(JSON.stringify(p.points || p.location || []));
 
-    editorConfig = { ...p, authors: parseAuthors(p) };
+    const auths = parseAuthors(p);
+    editorConfig = { ...p, authors: auths };
+    originalAuthors = [...auths]; // Zapamiętaj oryginał do czyszczenia plików
 
     if (['terrain', 'road', 'pin'].includes(p.category)) {
         if (editorPanel) editorPanel.style.display = 'block';
@@ -2165,7 +2183,7 @@ function deletePolygon(idx) {
     showCustomConfirm('Czy na pewno chcesz usun\u0105\u0107 ten element?', () => {
         const p = polygons[idx];
         logChange('USUWANIE', p);
-        notifyChange(p.authors || ["Nieznany"]);
+        notifyChange(p.authors || []); // [] doda "Public" do dirtyAuthors
         polygons.splice(idx, 1);
 
         finalizeSave(true);
@@ -2355,10 +2373,24 @@ document.getElementById('submit-changes-btn').addEventListener('click', () => {
     const authorsToSync = window.dirtyAuthors.size > 0 ? Array.from(window.dirtyAuthors) : (currentUser ? [currentUser.nick] : []);
 
     authorsToSync.forEach(auth => {
-        const myPolys = polygons.filter(p => p.authors && p.authors.includes(auth));
+        let myPolys = [];
+        let path = `poligons/${auth.toLowerCase()}.js`;
+
+        if (auth === "Public") {
+            myPolys = polygons.filter(p => !p.authors || p.authors.length === 0);
+            path = "poligons/public.js";
+        } else if (auth === "Mixed") {
+            myPolys = polygons.filter(p => p.authors && p.authors.length > 1);
+            path = "poligons/pozycje.js";
+        } else {
+            // Poligony z dokładnie jednym autorem
+            myPolys = polygons.filter(p => p.authors && p.authors.length === 1 && p.authors[0] === auth);
+        }
+
         const formattedList = myPolys.map(p => formatPolygon(p)).join('\n');
         batch.push({
             author: auth,
+            path: path,
             content: `window.registerPolygons([\n${formattedList}\n]);`
         });
     });
