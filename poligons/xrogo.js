@@ -67,4 +67,114 @@ window.registerPolygons([
         authors: ["XRogo"],
         author: "XRogo"
     },
+    {
+        points: [[-144,500],[-147,532],[-205,506],[-240,494],[-260,491],[-295,497],[-318,505],[-330,505],[-348,506],[-367,503],[-393,498],[-404,482],[-403,471],[-357,478],[-326,476],[-293,471],[-264,468],[-236,470],[-215,476],[-179,485]],
+        lineColor: "#ffbb00",
+        fillColor: "#ffbb0033",
+        closePath: true,
+        name: "port",
+        category: "terrain",
+        authors: ["XRogo"],
+        temporary: true,
+        author: "XRogo"
+    },
+    {
+        points: [[-226,327],[-225,368],[-181,370],[-179,330]],
+        lineColor: "#0400ff",
+        fillColor: "#0400ff33",
+        closePath: true,
+        name: "rynek",
+        category: "terrain",
+        authors: ["XRogo"],
+        author: "XRogo",
+        temporary: true
+    },
+    {
+        points: [[-174,236],[-135,237],[-134,194],[-199,181],[-271,173],[-327,164],[-342,163],[-367,192],[-378,220],[-373,236],[-369,262],[-356,275],[-333,272],[-306,234],[-273,207],[-229,203],[-184,214]],
+        lineColor: "#2825d0",
+        fillColor: "#2825d033",
+        closePath: true,
+        name: "podmóże",
+        category: "terrain",
+        authors: ["XRogo"],
+        temporary: true,
+        author: "XRogo"
+    },
+    {
+        points: [[-450,444],[-451,413],[-439,387],[-414,351],[-391,310],[-356,290],[-335,275],[-298,231],[-276,209],[-235,206],[-201,210],[-176,232],[-167,264],[-155,301],[-151,327],[-155,395],[-161,436],[-144,494],[-140,521]],
+        lineColor: "#d02525",
+        fillColor: "transparent",
+        closePath: false,
+        name: "mury",
+        category: "road",
+        authors: ["XRogo"],
+        author: "XRogo",
+        temporary: true
+    },
+    {
+        points: [[-348,281],[-352,241],[-363,221],[-379,208],[-399,207],[-428,212],[-454,225],[-469,235],[-468,253],[-469,261],[-404,286],[-398,309]],
+        lineColor: "#d11a1a",
+        fillColor: "#d11a1a33",
+        closePath: true,
+        name: "lasko step",
+        category: "terrain",
+        authors: ["XRogo"],
+        author: "XRogo",
+        temporary: true
+    },
+    {
+        points: [[-489,251],[-479,263],[-464,263],[-455,256],[-455,243],[-468,238],[-478,238]],
+        lineColor: "#00ff00",
+        fillColor: "#00ff0033",
+        closePath: true,
+        name: "młyn",
+        category: "terrain",
+        authors: ["XRogo"],
+        author: "XRogo",
+        temporary: true
+    },
+    {
+        points: [[-630,318],[-632,331],[-620,335],[-617,323],[-622,313]],
+        lineColor: "#00ff00",
+        fillColor: "#00ff0033",
+        closePath: true,
+        name: "drzewo",
+        category: "terrain",
+        authors: ["XRogo"],
+        author: "XRogo",
+        temporary: true
+    },
+    {
+        points: [[-344,318],[-363,367],[-353,388],[-322,388],[-310,372],[-303,331],[-320,305]],
+        lineColor: "#3a0303",
+        fillColor: "#3a030333",
+        closePath: true,
+        name: "jakaś kaplica katedra?",
+        category: "terrain",
+        authors: ["XRogo"],
+        author: "XRogo",
+        temporary: true
+    },
+    {
+        points: [[-148,403],[-163,404],[-163,372],[-147,375]],
+        lineColor: "#000000",
+        fillColor: "#00000033",
+        closePath: true,
+        name: "brama wejściowa ",
+        category: "terrain",
+        authors: ["XRogo"],
+        author: "XRogo",
+        temporary: true
+    },
+    {
+        points: [[-130,369],[-117,378],[-131,426],[-136,451],[-149,489],[-150,530],[-169,522],[-185,517]],
+        lineColor: "#0e42dd",
+        fillColor: "#0e42dd33",
+        closePath: true,
+        name: "rzeczka? taka wykopana obronna",
+        category: "terrain",
+        authors: ["XRogo"],
+        author: "XRogo",
+        temporary: true
+    },
 ]);
