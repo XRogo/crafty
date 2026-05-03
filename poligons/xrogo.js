@@ -156,17 +156,6 @@ window.registerPolygons([
         temporary: true
     },
     {
-        points: [[-148,403],[-163,404],[-163,372],[-147,375]],
-        lineColor: "#000000",
-        fillColor: "#00000033",
-        closePath: true,
-        name: "brama wejściowa ",
-        category: "terrain",
-        authors: ["XRogo"],
-        author: "XRogo",
-        temporary: true
-    },
-    {
         points: [[-130,369],[-117,378],[-131,426],[-136,451],[-149,489],[-150,530],[-169,522],[-185,517]],
         lineColor: "#0e42dd",
         fillColor: "#0e42dd33",
