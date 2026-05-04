@@ -27,16 +27,6 @@ window.registerPolygons([
         authors: ["XRogo"]
     },
     {
-        points: [[-161,40],[-164,52],[-168,56],[-173,59],[-181,60],[-303,64],[-338,68],[-349,70],[-359,75],[-372,88],[-527,243],[-533,253],[-535,261],[-541,334],[-542,412],[-540,415],[-535,416],[-512,416],[-510,419],[-510,424],[-514,426],[-545,426],[-547,429],[-554,477]],
-        lineColor: "#bb00ff",
-        fillColor: "transparent",
-        closePath: false,
-        name: "m3",
-        category: "rail",
-        authors: ["XRogo","MorrisEk"],
-        author: "XRogo"
-    },
-    {
         points: [[-201,350]],
         lineColor: "#ee00ff",
         fillColor: "transparent",
@@ -45,17 +35,6 @@ window.registerPolygons([
         category: "pin",
         authors: ["XRogo"],
         panorama: "foto/xrogo_magazyn/"
-    },
-    {
-        points: [[-500,338]],
-        lineColor: "#04ff00",
-        fillColor: "transparent",
-        closePath: true,
-        name: "Pola",
-        category: "pin",
-        authors: ["XRogo","MorrisEk"],
-        panorama: "foto/pola/",
-        author: "XRogo"
     },
     {
         points: [[25,50],[1,50],[1,39],[-2,37],[-24,37],[-31,30],[-31,-13],[-34,-30],[-44,-42],[-59,-56],[-71,-61],[-134,-61],[-145,-55],[-151,-49],[-154,-41],[-155,-28],[-156,-10],[-161,16],[-161,21]],
@@ -165,5 +144,61 @@ window.registerPolygons([
         authors: ["XRogo"],
         author: "XRogo",
         temporary: true
+    },
+    {
+        points: [[-510,488],[-498,481],[-479,480],[-472,489],[-465,507],[-471,525],[-480,534],[-495,534],[-509,530],[-514,520],[-516,507],[-515,497]],
+        lineColor: "#f57914",
+        fillColor: "#f5791433",
+        closePath: true,
+        name: "gdześ tu stacja kolekowa XRogo?",
+        opis: "nie wiem ale jak by gdzies tu wlazła to bym miał i tu by mi pasowała",
+        category: "station",
+        authors: ["XRogo"],
+        out: [[-512,524],[-499,482]],
+        author: "XRogo"
+    },
+    {
+        points: [[-431,374],[-456,391],[-457,446],[-441,485],[-398,492],[-350,492],[-324,480],[-314,456],[-330,424],[-336,381],[-394,363]],
+        lineColor: "#351d62",
+        fillColor: "#351d6233",
+        closePath: true,
+        name: "podwyższenie",
+        category: "terrain",
+        authors: ["XRogo"],
+        temporary: true,
+        author: "XRogo"
+    },
+    {
+        points: [[-374,391],[-407,399],[-405,413],[-406,429],[-378,416],[-370,410],[-369,400]],
+        lineColor: "#5213c9",
+        fillColor: "#5213c933",
+        closePath: true,
+        name: "łaźnei",
+        category: "terrain",
+        authors: ["XRogo"],
+        author: "XRogo",
+        temporary: true
+    },
+    {
+        points: [[-478,481],[-473,488],[-439,463],[-447,455]],
+        lineColor: "#ff0000",
+        fillColor: "#ff000033",
+        closePath: true,
+        name: "most?",
+        category: "terrain",
+        authors: ["XRogo"],
+        temporary: true,
+        author: "XRogo"
+    },
+    {
+        points: [[-450,453],[-439,465],[-421,455],[-433,441]],
+        lineColor: "#00ff00",
+        fillColor: "#00ff0033",
+        closePath: true,
+        name: "wjesza?",
+        category: "terrain",
+        authors: ["XRogo"],
+        temporary: true,
+        author: "XRogo"
     },
 ]);
