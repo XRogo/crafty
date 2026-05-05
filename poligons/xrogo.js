@@ -146,59 +146,12 @@ window.registerPolygons([
         temporary: true
     },
     {
-        points: [[-510,488],[-498,481],[-479,480],[-472,489],[-465,507],[-471,525],[-480,534],[-495,534],[-509,530],[-514,520],[-516,507],[-515,497]],
-        lineColor: "#f57914",
-        fillColor: "#f5791433",
-        closePath: true,
-        name: "gdześ tu stacja kolekowa XRogo?",
-        opis: "nie wiem ale jak by gdzies tu wlazła to bym miał i tu by mi pasowała",
-        category: "station",
+        points: [[-397,-563],[-249,-585],[-255,-618],[-250,-502]],
+        lineColor: "#ffffff",
+        fillColor: "transparent",
+        closePath: false,
+        category: "road",
         authors: ["XRogo"],
-        out: [[-512,524],[-499,482]],
-        author: "XRogo"
-    },
-    {
-        points: [[-431,374],[-456,391],[-457,446],[-441,485],[-398,492],[-350,492],[-324,480],[-314,456],[-330,424],[-336,381],[-394,363]],
-        lineColor: "#351d62",
-        fillColor: "#351d6233",
-        closePath: true,
-        name: "podwyższenie",
-        category: "terrain",
-        authors: ["XRogo"],
-        temporary: true,
-        author: "XRogo"
-    },
-    {
-        points: [[-374,391],[-407,399],[-405,413],[-406,429],[-378,416],[-370,410],[-369,400]],
-        lineColor: "#5213c9",
-        fillColor: "#5213c933",
-        closePath: true,
-        name: "łaźnei",
-        category: "terrain",
-        authors: ["XRogo"],
-        author: "XRogo",
-        temporary: true
-    },
-    {
-        points: [[-478,481],[-473,488],[-439,463],[-447,455]],
-        lineColor: "#ff0000",
-        fillColor: "#ff000033",
-        closePath: true,
-        name: "most?",
-        category: "terrain",
-        authors: ["XRogo"],
-        temporary: true,
-        author: "XRogo"
-    },
-    {
-        points: [[-450,453],[-439,465],[-421,455],[-433,441]],
-        lineColor: "#00ff00",
-        fillColor: "#00ff0033",
-        closePath: true,
-        name: "wjesza?",
-        category: "terrain",
-        authors: ["XRogo"],
-        temporary: true,
         author: "XRogo"
     },
 ]);
