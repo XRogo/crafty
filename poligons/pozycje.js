@@ -44,7 +44,7 @@ window.registerPolygons([
         closePath: true,
         name: "Lasy Publiczne",
         category: "terrain",
-        authors: ["XRogo","Rysio_13","Dasikor","K_O_Ozzy"],
+        authors: ["XRogo","MorrisEk","Rysio_13","Dasikor","K_O_Ozzy"],
         number: 14,
         author: "XRogo"
     },
