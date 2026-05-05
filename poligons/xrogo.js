@@ -27,16 +27,6 @@ window.registerPolygons([
         authors: ["XRogo"]
     },
     {
-        points: [[-161,40],[-164,52],[-168,56],[-173,59],[-181,60],[-303,64],[-338,68],[-349,70],[-359,75],[-372,88],[-527,243],[-533,253],[-535,261],[-541,334],[-542,412],[-540,415],[-535,416],[-512,416],[-510,419],[-510,424],[-514,426],[-545,426],[-547,429],[-554,477]],
-        lineColor: "#bb00ff",
-        fillColor: "transparent",
-        closePath: false,
-        name: "m3",
-        category: "rail",
-        authors: ["XRogo","MorrisEk"],
-        author: "XRogo"
-    },
-    {
         points: [[-201,350]],
         lineColor: "#ee00ff",
         fillColor: "transparent",
@@ -45,17 +35,6 @@ window.registerPolygons([
         category: "pin",
         authors: ["XRogo"],
         panorama: "foto/xrogo_magazyn/"
-    },
-    {
-        points: [[-500,338]],
-        lineColor: "#04ff00",
-        fillColor: "transparent",
-        closePath: true,
-        name: "Pola",
-        category: "pin",
-        authors: ["XRogo","MorrisEk"],
-        panorama: "foto/pola/",
-        author: "XRogo"
     },
     {
         points: [[25,50],[1,50],[1,39],[-2,37],[-24,37],[-31,30],[-31,-13],[-34,-30],[-44,-42],[-59,-56],[-71,-61],[-134,-61],[-145,-55],[-151,-49],[-154,-41],[-155,-28],[-156,-10],[-161,16],[-161,21]],
@@ -161,6 +140,82 @@ window.registerPolygons([
         fillColor: "#0e42dd33",
         closePath: true,
         name: "rzeczka? taka wykopana obronna",
+        category: "terrain",
+        authors: ["XRogo"],
+        author: "XRogo",
+        temporary: true
+    },
+    {
+        points: [[-575,-744],[-586,-743],[-593,-740],[-598,-732],[-599,-725],[-603,-720],[-611,-716],[-623,-712],[-629,-705],[-631,-696],[-633,-682],[-632,-670],[-629,-663],[-621,-656],[-613,-654],[-604,-653],[-595,-655],[-587,-657],[-574,-654],[-573,-650],[-577,-640],[-577,-629],[-567,-615],[-551,-608],[-537,-607],[-527,-609],[-513,-617],[-510,-628],[-505,-636],[-497,-639],[-486,-638],[-470,-637],[-459,-636],[-446,-636],[-432,-640],[-425,-647],[-422,-654],[-416,-669],[-416,-677],[-416,-683],[-411,-683],[-403,-678],[-394,-674],[-383,-674],[-372,-674],[-363,-677],[-356,-680],[-351,-684],[-347,-690],[-344,-697],[-343,-711],[-344,-729],[-349,-746],[-359,-757],[-370,-763],[-381,-766],[-406,-768],[-423,-765],[-433,-763],[-446,-757],[-449,-767],[-456,-783],[-465,-792],[-477,-797],[-489,-795],[-495,-790],[-499,-784],[-501,-776],[-499,-764],[-495,-744]],
+        lineColor: "#0011ff",
+        fillColor: "#0011ff33",
+        closePath: true,
+        name: "Tor",
+        category: "terrain",
+        authors: ["XRogo"],
+        author: "XRogo"
+    },
+    {
+        points: [[-619,-792],[-588,-792],[-590,-748],[-622,-748]],
+        lineColor: "#34a860",
+        fillColor: "#34a86033",
+        closePath: true,
+        name: "stacja modern miasto",
+        category: "station",
+        authors: ["XRogo"],
+        out: [[-601,-748],[-601,-792]],
+        author: "XRogo",
+        temporary: true
+    },
+    {
+        points: [[-577,-771],[-577,-744],[-500,-744],[-500,-771],[-501,-771],[-501,-774],[-575,-774],[-575,-771]],
+        lineColor: "#ff00dd",
+        fillColor: "#ff00dd33",
+        closePath: true,
+        name: "trybuny",
+        category: "terrain",
+        authors: ["XRogo"],
+        author: "XRogo"
+    },
+    {
+        points: [[-575,-779],[-574,-814],[-501,-814],[-502,-779]],
+        lineColor: "#000000",
+        fillColor: "#00000033",
+        closePath: true,
+        name: "parking?",
+        category: "terrain",
+        authors: ["XRogo"],
+        temporary: true,
+        author: "XRogo"
+    },
+    {
+        points: [[-358,-780],[-436,-786],[-449,-809],[-359,-811]],
+        lineColor: "#00ff00",
+        fillColor: "#00ff0033",
+        closePath: true,
+        name: "świerkowa drzewa",
+        category: "terrain",
+        authors: ["XRogo"],
+        temporary: true,
+        author: "XRogo"
+    },
+    {
+        points: [[-472,-869],[-459,-851],[-429,-852],[-405,-861],[-388,-866],[-384,-877],[-374,-875],[-380,-858],[-396,-845],[-423,-839],[-466,-840],[-478,-850],[-482,-861]],
+        lineColor: "#525252",
+        fillColor: "#52525233",
+        closePath: true,
+        name: "jakiś mopdern dom w skale?",
+        category: "terrain",
+        authors: ["XRogo"],
+        temporary: true,
+        author: "XRogo"
+    },
+    {
+        points: [[-341,-882],[-334,-881],[-361,-816],[-603,-815],[-706,-831],[-717,-884],[-710,-884],[-698,-836],[-680,-832],[-602,-821],[-367,-821]],
+        lineColor: "#000000",
+        fillColor: "#00000033",
+        closePath: true,
+        name: "jakiegoś rodzaju droga ",
         category: "terrain",
         authors: ["XRogo"],
         author: "XRogo",
