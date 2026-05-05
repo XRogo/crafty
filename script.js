@@ -100,7 +100,12 @@ function showCustomConfirm(msg, onYes) {
     };
 }
 
-const isModalOpen = () => (document.getElementById('code-modal')?.style.display === 'block' || document.getElementById('custom-confirm-modal')?.style.display === 'block');
+const isModalOpen = () => (
+    document.getElementById('code-modal')?.style.display === 'block' || 
+    document.getElementById('custom-confirm-modal')?.style.display === 'block' ||
+    document.getElementById('pano-viewer-modal')?.style.display === 'flex' ||
+    document.getElementById('password-modal')?.style.display === 'block'
+);
 
 function parseAuthors(p) {
     let raw = p.authors || p.autor || p.author || [];
@@ -978,6 +983,7 @@ function openPanoViewer(path, title) {
     document.getElementById('pano-title').textContent = `Panorama: ${title}`;
     const modal = document.getElementById('pano-viewer-modal');
     modal.style.display = 'flex';
+    document.body.classList.add('modal-active');
 
     // Przypisz obrazy do Ĺ›cian szeĹ›cianu (front, right, back, left, top, bottom)
     const faces = ['front', 'right', 'back', 'left', 'top', 'bottom'];
@@ -992,6 +998,12 @@ function openPanoViewer(path, title) {
     updatePanoTransform();
 }
 
+function closePanoViewer() {
+    const modal = document.getElementById('pano-viewer-modal');
+    if (modal) modal.style.display = 'none';
+    document.body.classList.remove('modal-active');
+}
+
 function updatePanoTransform() {
     const cube = document.getElementById('pano-cube');
     const container = document.getElementById('pano-cube-container');
@@ -1000,16 +1012,29 @@ function updatePanoTransform() {
     if (container) container.style.perspective = `${panoZoom}px`;
 }
 
-// ObsĹ‚uga przeciÄ…gania
-document.getElementById('pano-cube-container')?.addEventListener('pointerdown', (e) => {
+const panoContainer = document.getElementById('pano-cube-container');
+panoContainer?.addEventListener('pointerdown', (e) => {
     isPanoDragging = true;
     lastPanoX = e.clientX;
     lastPanoY = e.clientY;
     e.target.setPointerCapture(e.pointerId);
 });
 
+panoContainer?.addEventListener('pointerup', (e) => {
+    isPanoDragging = false;
+    if (e.target.hasPointerCapture(e.pointerId)) {
+        e.target.releasePointerCapture(e.pointerId);
+    }
+});
+
+panoContainer?.addEventListener('pointercancel', (e) => {
+    isPanoDragging = false;
+    if (e.target.hasPointerCapture(e.pointerId)) {
+        e.target.releasePointerCapture(e.pointerId);
+    }
+});
+
 window.addEventListener('pointermove', e => {
-    if (isModalOpen()) return;
     if (!isPanoDragging) return;
     const dx = e.clientX - lastPanoX;
     const dy = e.clientY - lastPanoY;
@@ -1022,30 +1047,31 @@ window.addEventListener('pointermove', e => {
     updatePanoTransform();
 });
 
-window.addEventListener('pointerup', () => {
-    isPanoDragging = false;
-});
+
 
 // Obsługa zoomu
 document.getElementById('pano-cube-container')?.addEventListener('wheel', (e) => {
     e.preventDefault();
-    panoZoom = Math.max(300, Math.min(2000, panoZoom + e.deltaY));
+    // Odwrócony kierunek: scroll w górę (deltaY < 0) przybliża (zmniejsza FOV/perspective)
+    // Aby przybliżyć scrollem w górę: deltaY jest ujemna, więc chcemy żeby panoZoom wzrósł.
+    // Zatem: panoZoom - e.deltaY (np. 500 - (-100) = 600)
+    panoZoom = Math.max(300, Math.min(2000, panoZoom - e.deltaY));
     updatePanoTransform();
 }, { passive: false });
 
-// Auto-rotacja jak w menu Minecrafta
-let autoRotLastTime = Date.now();
-function panoAutoRotate() {
-    if (!isPanoDragging && document.getElementById('pano-viewer-modal').style.display === 'flex') {
-        const now = Date.now();
-        const delta = (now - autoRotLastTime) / 1000;
-        panoYaw += delta * 2; // Wolny obrót (2 stopnie na sekunde)
-        updatePanoTransform();
-    }
-    autoRotLastTime = Date.now();
-    requestAnimationFrame(panoAutoRotate);
-}
-panoAutoRotate();
+// Auto-rotacja wyłączona na prośbę użytkownika
+// let autoRotLastTime = Date.now();
+// function panoAutoRotate() {
+//     if (!isPanoDragging && document.getElementById('pano-viewer-modal').style.display === 'flex') {
+//         const now = Date.now();
+//         const delta = (now - autoRotLastTime) / 1000;
+//         panoYaw += delta * 2; // Wolny obrót (2 stopnie na sekunde)
+//         updatePanoTransform();
+//     }
+//     autoRotLastTime = Date.now();
+//     requestAnimationFrame(panoAutoRotate);
+// }
+// panoAutoRotate();
 
 function closePolyInfo() {
     selectedPolygonIndex = -1;
@@ -2311,10 +2337,7 @@ function animationLoop() {
     }
     updateInfo();
 
-    // Panorama loop
-    if (document.getElementById('pano-viewer-modal').style.display === 'flex') {
-        drawPanoViewer();
-    }
+
 
     requestAnimationFrame(animationLoop);
 }
@@ -2358,8 +2381,48 @@ function updateServerStatus() {
 updateServerStatus();
 setInterval(updateServerStatus, 45000);
 
-document.getElementById('submit-changes-btn').addEventListener('click', () => {
-    const pass = prompt("Podaj hasło grupy, aby zatwierdzić zmiany na GitHubie:");
+function requestPassword() {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('password-modal');
+        const input = document.getElementById('batch-password-input');
+        const confirmBtn = document.getElementById('confirm-batch-btn');
+        const cancelBtn = document.getElementById('cancel-batch-btn');
+
+        modal.style.display = 'block';
+        document.body.classList.add('modal-active');
+        input.value = '';
+        setTimeout(() => input.focus(), 100);
+
+        const onConfirm = () => {
+            const pass = input.value;
+            cleanup();
+            resolve(pass);
+        };
+
+        const onCancel = () => {
+            cleanup();
+            resolve(null);
+        };
+
+        const cleanup = () => {
+            modal.style.display = 'none';
+            document.body.classList.remove('modal-active');
+            confirmBtn.onclick = null;
+            cancelBtn.onclick = null;
+            input.onkeydown = null;
+        };
+
+        confirmBtn.onclick = onConfirm;
+        cancelBtn.onclick = onCancel;
+        input.onkeydown = (e) => {
+            if (e.key === 'Enter') onConfirm();
+            if (e.key === 'Escape') onCancel();
+        };
+    });
+}
+
+document.getElementById('submit-changes-btn').addEventListener('click', async () => {
+    const pass = await requestPassword();
     if (!pass) return;
 
     const btn = document.getElementById('submit-changes-btn');
