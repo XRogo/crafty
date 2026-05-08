@@ -221,4 +221,99 @@ window.registerPolygons([
         author: "XRogo",
         temporary: true
     },
+    {
+        points: [[-241,479],[-241,363]],
+        lineColor: "#0008ff",
+        fillColor: "transparent",
+        closePath: false,
+        category: "road",
+        authors: ["XRogo"],
+        temporary: true,
+        author: "XRogo"
+    },
+    {
+        points: [[-241,405],[-433,405]],
+        lineColor: "#2027fe",
+        fillColor: "transparent",
+        closePath: false,
+        category: "road",
+        authors: ["XRogo"],
+        temporary: true,
+        author: "XRogo"
+    },
+    {
+        points: [[-395,348],[-362,336],[-348,306],[-310,307],[-295,357],[-295,367],[-301,400],[-368,419],[-390,426],[-393,439],[-394,447],[-407,447],[-411,468],[-421,474],[-447,445],[-450,412],[-429,372]],
+        lineColor: "#b09903",
+        fillColor: "#b0990333",
+        closePath: true,
+        name: "elita",
+        category: "terrain",
+        authors: ["XRogo"],
+        temporary: true,
+        author: "XRogo"
+    },
+    {
+        points: [[-394,444],[-433,420],[-402,389],[-377,417]],
+        lineColor: "#37310b",
+        fillColor: "#37310b33",
+        closePath: true,
+        name: "łaźnia",
+        category: "terrain",
+        authors: ["XRogo"],
+        temporary: true,
+        author: "XRogo"
+    },
+    {
+        points: [[-403,372],[-399,395],[-376,389],[-378,371]],
+        lineColor: "#00ff00",
+        fillColor: "#00ff0033",
+        closePath: true,
+        name: "rynek elit",
+        category: "terrain",
+        authors: ["XRogo"],
+        temporary: true,
+        author: "XRogo"
+    },
+    {
+        points: [[-298,354],[-290,354],[-290,366],[-299,365]],
+        lineColor: "#7a1200",
+        fillColor: "#7a120033",
+        closePath: true,
+        name: "brama 1",
+        category: "terrain",
+        authors: ["XRogo"],
+        temporary: true,
+        author: "XRogo"
+    },
+    {
+        points: [[-409,444],[-411,451],[-391,452],[-391,443]],
+        lineColor: "#7e1402",
+        fillColor: "#7e140233",
+        closePath: true,
+        name: "brama 2",
+        category: "terrain",
+        authors: ["XRogo"],
+        author: "XRogo",
+        temporary: true
+    },
+    {
+        points: [[-218,364],[-224,368],[-233,369],[-245,373],[-253,368],[-256,359],[-257,350],[-264,345],[-272,344],[-277,349],[-279,357],[-286,363],[-297,361]],
+        lineColor: "#f2f2f2",
+        fillColor: "transparent",
+        closePath: false,
+        category: "road",
+        authors: ["XRogo"],
+        temporary: true,
+        author: "XRogo"
+    },
+    {
+        points: [[-400,446],[-400,458],[-395,466],[-382,466],[-378,460],[-386,454],[-381,447],[-371,447],[-361,452]],
+        lineColor: "#ffffff",
+        fillColor: "transparent",
+        closePath: false,
+        category: "road",
+        authors: ["XRogo"],
+        temporary: true,
+        author: "XRogo"
+    },
 ]);
