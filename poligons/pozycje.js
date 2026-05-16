@@ -99,6 +99,7 @@ window.registerPolygons([
         name: "JASKINIA z wodospadem na wyjsciu",
         category: "terrain",
         authors: ["MorrisEk","Agna28"],
-        author: "MorrisEk"
+        author: "MorrisEk",
+        temporary: true
     },
 ]);
