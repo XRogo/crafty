@@ -377,4 +377,14 @@ window.registerPolygons([
         temporary: true,
         author: "MorrisEk"
     },
+    {
+        points: [[-959,454],[-848,462],[-729,462],[-606,458],[-514,450],[-512,492],[-670,502],[-806,503],[-984,484]],
+        lineColor: "#7f0071",
+        fillColor: "#7f007133",
+        closePath: true,
+        name: "WZNIESIONE MIASTECZKO",
+        category: "terrain",
+        authors: ["MorrisEk"],
+        author: "MorrisEk"
+    },
 ]);
