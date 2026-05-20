@@ -20,4 +20,13 @@ window.registerPolygons([
         out: [[162,2196],[164,2233],[182,2219],[182,2206],[155,2214]],
         author: "Agna28"
     },
+    {
+        points: [[185,2256],[182,2026]],
+        lineColor: "#00ff00",
+        fillColor: "#00ff0033",
+        closePath: false,
+        category: "rail",
+        authors: ["Agna28"],
+        author: "Agna28"
+    },
 ]);
