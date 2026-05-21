@@ -387,4 +387,14 @@ window.registerPolygons([
         authors: ["MorrisEk"],
         author: "MorrisEk"
     },
+    {
+        points: [[-157,-1291]],
+        lineColor: "#f6f5f4",
+        fillColor: "transparent",
+        closePath: true,
+        name: "icp spotted",
+        category: "pin",
+        authors: ["MorrisEk"],
+        author: "MorrisEk"
+    },
 ]);
