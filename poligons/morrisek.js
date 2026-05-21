@@ -392,7 +392,7 @@ window.registerPolygons([
         lineColor: "#f6f5f4",
         fillColor: "transparent",
         closePath: true,
-        name: "icp spotted",
+        name: "icb spotted",
         category: "pin",
         authors: ["MorrisEk"],
         author: "MorrisEk"
