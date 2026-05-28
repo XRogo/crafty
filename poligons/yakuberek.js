@@ -8,4 +8,25 @@ window.registerPolygons([
         category: "terrain",
         authors: ["Yakuberek"]
     },
+    {
+        points: [[23,470],[49,469],[49,483],[24,484]],
+        lineColor: "#f50000",
+        fillColor: "#f5000033",
+        closePath: true,
+        name: "Yakuberek",
+        opis: "Najlepsza Stacja",
+        category: "station",
+        authors: ["Yakuberek"],
+        out: [[49,477],[24,478]],
+        author: "Yakuberek"
+    },
+    {
+        points: [[49,477],[79,477],[78,520],[152,517]],
+        lineColor: "#00ff00",
+        fillColor: "#00ff0033",
+        closePath: false,
+        category: "rail",
+        authors: ["Yakuberek"],
+        author: "Yakuberek"
+    },
 ]);
