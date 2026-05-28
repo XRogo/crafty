@@ -39,11 +39,20 @@ window.registerPolygons([
         author: "Coolphone"
     },
     {
-        points: [[150,144],[129,199],[130,281],[178,329],[368,330]],
+        points: [[150,144],[169,190],[187,251],[228,332],[318,332],[310,407],[303,501]],
         lineColor: "#01df6c",
         fillColor: "transparent",
         closePath: false,
         name: "c2",
+        category: "rail",
+        authors: ["Coolphone"],
+        author: "Coolphone"
+    },
+    {
+        points: [[179,517],[208,525],[214,514],[220,525],[225,503],[229,524],[233,515],[239,525],[265,522],[303,501]],
+        lineColor: "#00ff00",
+        fillColor: "#00ff0033",
+        closePath: false,
         category: "rail",
         authors: ["Coolphone"],
         author: "Coolphone"
