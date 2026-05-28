@@ -102,4 +102,42 @@ window.registerPolygons([
         author: "MorrisEk",
         temporary: true
     },
+    {
+        points: [[-1943,-164],[-1931,-164],[-1931,-144],[-1943,-144]],
+        lineColor: "#00ff00",
+        fillColor: "#00ff0033",
+        closePath: true,
+        name: "Neres",
+        category: "station",
+        authors: ["MacKrater","Neressia"],
+        out: [[-1933,-164],[-1934,-144]],
+        author: "MacKrater"
+    },
+    {
+        points: [[-1566,-189],[-1758,-169],[-1926,-169],[-1933,-164]],
+        lineColor: "#00ff00",
+        fillColor: "#00ff0033",
+        closePath: false,
+        category: "rail",
+        authors: ["MacKrater","Neressia"],
+        author: "MacKrater"
+    },
+    {
+        points: [[-1934,-144],[-1933,17],[-2094,104],[-2214,107]],
+        lineColor: "#00ff00",
+        fillColor: "#00ff0033",
+        closePath: false,
+        category: "rail",
+        authors: ["MacKrater","Neressia"],
+        author: "MacKrater"
+    },
+    {
+        points: [[-2245,107],[-4127,154],[-6492,-812],[-6712,-6024],[-8210,-6105]],
+        lineColor: "#00ff00",
+        fillColor: "#00ff0033",
+        closePath: false,
+        category: "rail",
+        authors: ["MacKrater","Neressia"],
+        author: "MacKrater"
+    },
 ]);
