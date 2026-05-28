@@ -10,18 +10,27 @@ window.registerPolygons([
         authors: ["Agna28"]
     },
     {
-        points: [[181,2196],[183,2232],[156,2233],[155,2196]],
-        lineColor: "#00ff00",
-        fillColor: "#00ff0033",
+        points: [[157,2198],[177,2198],[177,2231],[157,2231]],
+        lineColor: "#ffbb00",
+        fillColor: "#ffbb0033",
         closePath: true,
-        name: "stacja western",
+        name: "Agna",
         category: "station",
         authors: ["Agna28"],
-        out: [[162,2196],[164,2233],[182,2219],[182,2206],[155,2214]],
+        out: [[176,2198],[177,2231]],
         author: "Agna28"
     },
     {
-        points: [[185,2256],[182,2026]],
+        points: [[176,2198],[165,1594],[90,1590],[85,1546],[18,1544],[-3,1338],[-129,1343],[-126,841],[5,812],[24,478]],
+        lineColor: "#00ff00",
+        fillColor: "#00ff0033",
+        closePath: false,
+        category: "rail",
+        authors: ["Agna28"],
+        author: "Agna28"
+    },
+    {
+        points: [[177,2231],[179,2382],[215,2354],[226,2403],[182,2432],[181,2455]],
         lineColor: "#00ff00",
         fillColor: "#00ff0033",
         closePath: false,
