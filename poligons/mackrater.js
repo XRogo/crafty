@@ -1,5 +1,18 @@
 window.registerPolygons([
     {
+        points: [[138,-51],[138,-31],[176,-31],[176,-51]],
+        lineColor: "#d40202",
+        fillColor: "#d4020233",
+        closePath: true,
+        name: "Stacja główna",
+        opis: "Z tąd dojedziesz wszędzie",
+        category: "station",
+        authors: ["MacKrater"],
+        nodes: [[176,-51]],
+        out: [[161,-31],[161,-51],[168,-51],[174,-51],[168,-31],[175,-31]],
+        author: "MacKrater"
+    },
+    {
         points: [[1056,-190],[1143,-185],[1181,-119],[1163,-35],[1130,13],[1085,32],[981,-15],[985,-64],[1032,-80],[1038,-164]],
         lineColor: "#1100faff",
         fillColor: "rgba(0, 4, 255, 0.2)",
@@ -48,6 +61,42 @@ window.registerPolygons([
         category: "station",
         authors: ["MacKrater"],
         out: [[-601,-771],[-601,-822]],
+        author: "MacKrater"
+    },
+    {
+        points: [[161,-51],[154,-68],[142,-82],[121,-83],[76,-80],[24,-80],[-4,-80],[-23,-110],[-136,-110],[-254,-112]],
+        lineColor: "#00ff00",
+        fillColor: "#00ff0033",
+        closePath: false,
+        category: "rail",
+        authors: ["MacKrater"],
+        author: "MacKrater"
+    },
+    {
+        points: [[-661,127],[-552,119],[-422,80],[-309,7],[-274,-3],[-254,-57]],
+        lineColor: "#00ff00",
+        fillColor: "#00ff0033",
+        closePath: false,
+        category: "rail",
+        authors: ["MacKrater"],
+        author: "MacKrater"
+    },
+    {
+        points: [[-682,123],[-685,-271],[-746,-280]],
+        lineColor: "#d043ab",
+        fillColor: "transparent",
+        closePath: false,
+        category: "rail",
+        authors: ["MacKrater"],
+        author: "MacKrater"
+    },
+    {
+        points: [[-778,-279],[-1545,-189]],
+        lineColor: "#fb6ad4",
+        fillColor: "transparent",
+        closePath: false,
+        category: "rail",
+        authors: ["MacKrater"],
         author: "MacKrater"
     },
 ]);
