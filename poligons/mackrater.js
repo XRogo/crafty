@@ -99,4 +99,40 @@ window.registerPolygons([
         authors: ["MacKrater"],
         author: "MacKrater"
     },
+    {
+        points: [[-7,-1235],[7,-1013],[38,-967],[39,-898],[49,-685],[108,-627],[160,-555],[168,-51]],
+        lineColor: "#00ff00",
+        fillColor: "#00ff0033",
+        closePath: false,
+        category: "rail",
+        authors: ["MacKrater"],
+        author: "MacKrater"
+    },
+    {
+        points: [[-7,-1263],[-69,-6026]],
+        lineColor: "#00ff00",
+        fillColor: "#00ff0033",
+        closePath: false,
+        category: "rail",
+        authors: ["MacKrater"],
+        author: "MacKrater"
+    },
+    {
+        points: [[-601,-822],[-582,-959],[-99,-969],[-4,-968],[-13,-1235]],
+        lineColor: "#00ff00",
+        fillColor: "#00ff0033",
+        closePath: false,
+        category: "rail",
+        authors: ["MacKrater"],
+        author: "MacKrater"
+    },
+    {
+        points: [[6632,-230],[1663,-471],[1530,-363],[1332,-363],[1203,-360],[1058,-303],[1053,-158],[1052,-43],[965,-41],[639,-19],[540,110],[511,123],[432,122],[267,124],[244,94],[224,54],[222,7],[211,-3],[175,-31]],
+        lineColor: "#00ff00",
+        fillColor: "#00ff0033",
+        closePath: false,
+        category: "rail",
+        authors: ["MacKrater"],
+        author: "MacKrater"
+    },
 ]);
