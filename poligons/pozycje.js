@@ -110,7 +110,7 @@ window.registerPolygons([
         name: "Neres",
         category: "station",
         authors: ["MacKrater","Neressia"],
-        out: [[-1933,-164],[-1934,-144]],
+        out: [[-1933,-164],[-1933,-144]],
         author: "MacKrater"
     },
     {
@@ -123,7 +123,7 @@ window.registerPolygons([
         author: "MacKrater"
     },
     {
-        points: [[-1934,-144],[-1933,17],[-2094,104],[-2214,107]],
+        points: [[-1933,-144],[-1932,17],[-2097,107],[-2214,107]],
         lineColor: "#00ff00",
         fillColor: "#00ff0033",
         closePath: false,
