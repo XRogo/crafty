@@ -65,12 +65,13 @@ window.registerPolygons([
     },
     {
         points: [[161,-51],[154,-68],[142,-82],[121,-83],[76,-80],[24,-80],[-4,-80],[-23,-110],[-136,-110],[-254,-112]],
-        lineColor: "#00ff00",
-        fillColor: "#00ff0033",
+        lineColor: "#002aff",
+        fillColor: "transparent",
         closePath: false,
         category: "rail",
         authors: ["MacKrater"],
-        author: "MacKrater"
+        author: "MacKrater",
+        temporary: false
     },
     {
         points: [[-661,127],[-552,119],[-422,80],[-309,7],[-274,-3],[-254,-57]],
@@ -82,8 +83,8 @@ window.registerPolygons([
         author: "MacKrater"
     },
     {
-        points: [[-682,123],[-685,-271],[-746,-280]],
-        lineColor: "#d043ab",
+        points: [[-682,123],[-689,123],[-693,118],[-688,14],[-688,-252],[-715,-279],[-746,-280]],
+        lineColor: "#d07c43",
         fillColor: "transparent",
         closePath: false,
         category: "rail",
@@ -91,7 +92,7 @@ window.registerPolygons([
         author: "MacKrater"
     },
     {
-        points: [[-778,-279],[-1545,-189]],
+        points: [[-778,-280],[-1545,-189]],
         lineColor: "#fb6ad4",
         fillColor: "transparent",
         closePath: false,
@@ -127,9 +128,9 @@ window.registerPolygons([
         author: "MacKrater"
     },
     {
-        points: [[6632,-230],[1663,-471],[1530,-363],[1332,-363],[1203,-360],[1058,-303],[1053,-158],[1052,-43],[965,-41],[639,-19],[540,110],[511,123],[432,122],[267,124],[244,94],[224,54],[222,7],[211,-3],[175,-31]],
-        lineColor: "#00ff00",
-        fillColor: "#00ff0033",
+        points: [[2800,-457],[1663,-471],[1530,-363],[1332,-363],[1203,-360],[1058,-303],[1053,-158],[1052,-43],[965,-41],[639,-19],[540,110],[511,123],[432,122],[267,124],[244,94],[224,54],[222,7],[211,-3],[175,-31]],
+        lineColor: "#03e230",
+        fillColor: "transparent",
         closePath: false,
         category: "rail",
         authors: ["MacKrater"],
