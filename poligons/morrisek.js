@@ -346,7 +346,7 @@ window.registerPolygons([
         authors: ["MorrisEk"]
     },
     {
-        points: [[161,-30],[161,22],[161,26],[160,28],[158,29],[123,29],[116,31],[110,35],[97,46],[93,48],[87,50],[46,50]],
+        points: [[161,-26],[161,22],[161,26],[160,28],[158,29],[123,29],[116,31],[110,35],[97,46],[93,48],[87,50],[46,50]],
         lineColor: "#1102d9",
         fillColor: "transparent",
         closePath: false,
@@ -395,6 +395,17 @@ window.registerPolygons([
         name: "icb spotted",
         category: "pin",
         authors: ["MorrisEk"],
+        author: "MorrisEk"
+    },
+    {
+        points: [[294,413],[305,413],[305,400],[294,400]],
+        lineColor: "#00ff00",
+        fillColor: "#00ff0033",
+        closePath: true,
+        name: "Stacja Wioska Szamanów?",
+        category: "station",
+        authors: ["MorrisEk"],
+        out: [[302,400],[302,413]],
         author: "MorrisEk"
     },
 ]);
