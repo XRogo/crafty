@@ -18,14 +18,14 @@ window.registerPolygons([
         authors: ["Lottunia"]
     },
     {
-        points: [[-778,-286],[-746,-286],[-745,-271],[-778,-271]],
+        points: [[-778,-286],[-746,-286],[-746,-271],[-778,-271],[-778,-279]],
         lineColor: "#00ff00",
         fillColor: "#00ff0033",
         closePath: true,
         name: "Lottie",
         category: "station",
         authors: ["Lottunia"],
-        out: [[-778,-279],[-746,-280]],
+        out: [[-778,-280],[-746,-280]],
         author: "Lottunia"
     },
 ]);
