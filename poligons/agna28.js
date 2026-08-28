@@ -10,16 +10,17 @@ window.registerPolygons([
         authors: ["Agna28"]
     },
     {
-        points: [[157,2198],[177,2198],[177,2231],[157,2231]],
-        lineColor: "#ffbb00",
-        fillColor: "#ffbb0033",
+        points: [[179,2233],[177,2195],[156,2195],[156,2233]],
+        lineColor: "#1159ee",
+        fillColor: "#1159ee33",
         closePath: true,
-        name: "Agna",
+        name: "agna kolej",
         category: "station",
         authors: ["Agna28"],
-        out: [[176,2198],[177,2231]],
+        out: [[179,2224]],
         author: "Agna28"
     },
+ 
     {
         points: [[176,2198],[165,1594],[90,1590],[85,1546],[18,1544],[-3,1338],[-129,1343],[-126,841],[5,812],[24,478]],
         lineColor: "#00ff00",
