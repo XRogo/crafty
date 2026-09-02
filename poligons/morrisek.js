@@ -388,16 +388,6 @@ window.registerPolygons([
         author: "MorrisEk"
     },
     {
-        points: [[-157,-1291]],
-        lineColor: "#f6f5f4",
-        fillColor: "transparent",
-        closePath: true,
-        name: "icb spotted",
-        category: "pin",
-        authors: ["MorrisEk"],
-        author: "MorrisEk"
-    },
-    {
         points: [[294,413],[305,413],[305,400],[294,400]],
         lineColor: "#00ff00",
         fillColor: "#00ff0033",
@@ -406,6 +396,16 @@ window.registerPolygons([
         category: "station",
         authors: ["MorrisEk"],
         out: [[302,400],[302,413]],
+        author: "MorrisEk"
+    },
+    {
+        points: [[-157,-1291]],
+        lineColor: "#ffffff",
+        fillColor: "transparent",
+        closePath: true,
+        name: "ICB SPOTED",
+        category: "pin",
+        authors: ["MorrisEk"],
         author: "MorrisEk"
     },
 ]);
