@@ -2356,30 +2356,18 @@ draw();
 const SERVER_URL = "https://mapa-backend-mtbw.onrender.com";
 
 function updateServerStatus() {
+    // Wyłączone – nie budzimy serwera automatycznie
+    // Serwer budzi się tylko przy zapisie zmian (po haśle)
     const statusText = document.getElementById('server-status-text');
-    if (!statusText) return;
-
-    statusText.className = 'loading';
-    statusText.textContent = "Zapis: Wczytywanie...";
-
-    fetch(SERVER_URL + "/status?t=" + Date.now())
-        .then(response => {
-            if (response.ok) {
-                statusText.className = 'online';
-                statusText.textContent = "Zapis: Aktywny";
-            } else {
-                statusText.className = 'error';
-                statusText.textContent = "Zapis: Błąd";
-            }
-        })
-        .catch(() => {
-            statusText.className = 'error';
-            statusText.textContent = "Zapis: Offline";
-        });
+    if (statusText) {
+        statusText.className = '';
+        statusText.textContent = "Zapis: Gotowy (na żądanie)";
+        statusText.style.color = "#aaa";
+    }
 }
 
-updateServerStatus();
-setInterval(updateServerStatus, 45000);
+// updateServerStatus();          ← zakomentowane
+// setInterval(updateServerStatus, 45000);  ← zakomentowane
 
 function requestPassword() {
     return new Promise((resolve) => {
