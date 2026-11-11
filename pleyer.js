@@ -35,6 +35,11 @@ window.playersData = [
         poligon: "poligons/rysio_13.js"
     },
     {
+        nick: "Daneyi",
+        icon: "head/daneyi.png",
+        poligon: "poligons/daneyi.js"
+    },
+    {
         nick: "papier70",
         icon: "head/papierek.png",
         poligon: "poligons/papier70.js"
