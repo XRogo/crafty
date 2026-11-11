@@ -29,7 +29,7 @@ window.registerPolygons([
         authors: ["Coolphone"]
     },
     {
-        points: [[162,-30],[162,42],[159,56],[152,75],[150,86],[150,124]],
+        points: [[162,-26],[162,42],[159,56],[152,75],[150,86],[150,124]],
         lineColor: "#01dfb3",
         fillColor: "transparent",
         closePath: false,
@@ -39,7 +39,7 @@ window.registerPolygons([
         author: "Coolphone"
     },
     {
-        points: [[150,144],[169,190],[187,251],[228,332],[318,332],[310,407],[303,501]],
+        points: [[150,144],[169,190],[187,251],[228,332],[303,333],[302,400]],
         lineColor: "#01df6c",
         fillColor: "transparent",
         closePath: false,
@@ -49,9 +49,9 @@ window.registerPolygons([
         author: "Coolphone"
     },
     {
-        points: [[179,517],[208,525],[214,514],[220,525],[225,503],[229,524],[233,515],[239,525],[265,522],[303,501]],
-        lineColor: "#00ff00",
-        fillColor: "#00ff0033",
+        points: [[179,517],[208,525],[214,514],[220,525],[225,503],[229,524],[233,515],[239,525],[265,522],[292,513],[295,501],[285,499],[287,506],[299,505],[302,413]],
+        lineColor: "#a6ff00",
+        fillColor: "transparent",
         closePath: false,
         category: "rail",
         authors: ["Coolphone"],

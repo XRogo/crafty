@@ -111,13 +111,4 @@ window.registerPolygons([
         category: "road",
         authors: []
     },
-    {
-        points: [[-330,-1348],[-322,-1250],[-290,-1077],[-234,-996],[-158,-967],[-22,-966],[81,-1029],[118,-1128],[200,-1216],[210,-1316],[204,-1408],[157,-1479],[93,-1517],[-18,-1539],[-231,-1498],[-290,-1430]],
-        lineColor: "#00b7db",
-        fillColor: "#00b7db33",
-        closePath: true,
-        name: "Miasteczko Zimiowe",
-        category: "terrain",
-        authors: []
-    },
 ]);
