@@ -76,7 +76,8 @@ window.registerPolygons([
         name: "Katedra",
         category: "terrain",
         authors: ["Neressia"],
-        author: "Neressia"
+        author: "Neressia",
+        temporary: true
     },
     {
         points: [[-298,-1187],[-254,-1186],[-252,-1123],[-298,-1122]],
@@ -86,6 +87,7 @@ window.registerPolygons([
         name: "Cmentarz i kaplica",
         category: "terrain",
         authors: ["Neressia"],
-        author: "Neressia"
+        author: "Neressia",
+        temporary: true
     },
 ]);
