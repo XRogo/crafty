@@ -60,6 +60,7 @@ window.registerPolygons([
         name: "Strefa Wikingów",
         category: "terrain",
         authors: ["Mikusierro"],
-        author: "Mikusierro"
+        author: "Mikusierro",
+        temporary: true
     },
 ]);
