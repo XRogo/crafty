@@ -37,13 +37,55 @@ window.registerPolygons([
     },
     {
         points: [[-45,-1287],[6,-1287],[6,-1164],[-44,-1164]],
-        lineColor: "#ff0000",
-        fillColor: "#ff000033",
+        lineColor: "#00ff2a",
+        fillColor: "#00ff2a33",
         closePath: true,
         name: "Park Wschodni",
         category: "terrain",
         authors: ["Neressia"],
         temporary: true,
+        author: "Neressia"
+    },
+    {
+        points: [[-96,-1395],[-64,-1396],[-62,-1295],[-96,-1294]],
+        lineColor: "#00ff00",
+        fillColor: "#00ff0033",
+        closePath: true,
+        name: "Park Północny",
+        category: "terrain",
+        authors: ["Neressia"],
+        temporary: true,
+        author: "Neressia"
+    },
+    {
+        points: [[-207,-1405],[4,-1404],[1,-1535],[-207,-1530]],
+        lineColor: "#00ff00",
+        fillColor: "#00ff0033",
+        closePath: true,
+        name: "Dzielnica Fabryczna",
+        category: "terrain",
+        authors: ["Neressia"],
+        temporary: true,
+        author: "Neressia"
+    },
+    {
+        points: [[-259,-1251],[-258,-1214],[-304,-1215],[-304,-1249]],
+        lineColor: "#00ff00",
+        fillColor: "#00ff0033",
+        closePath: true,
+        name: "Katedra",
+        category: "terrain",
+        authors: ["Neressia"],
+        author: "Neressia"
+    },
+    {
+        points: [[-298,-1187],[-254,-1186],[-252,-1123],[-298,-1122]],
+        lineColor: "#00ff00",
+        fillColor: "#00ff0033",
+        closePath: true,
+        name: "Cmentarz i kaplica",
+        category: "terrain",
+        authors: ["Neressia"],
         author: "Neressia"
     },
 ]);
