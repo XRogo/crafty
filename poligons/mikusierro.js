@@ -52,4 +52,14 @@ window.registerPolygons([
         out: [[-1566,-189],[-1545,-189]],
         author: "Mikusierro"
     },
+    {
+        points: [[30,-1478],[32,-1357],[150,-1356],[148,-1480]],
+        lineColor: "#00ffd5",
+        fillColor: "#00ffd533",
+        closePath: true,
+        name: "Strefa Wikingów",
+        category: "terrain",
+        authors: ["Mikusierro"],
+        author: "Mikusierro"
+    },
 ]);
