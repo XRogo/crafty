@@ -90,4 +90,48 @@ window.registerPolygons([
         author: "Neressia",
         temporary: true
     },
+    {
+        points: [[46,-568],[109,-567],[110,-536],[46,-536]],
+        lineColor: "#ff00ea",
+        fillColor: "#ff00ea33",
+        closePath: true,
+        name: "Magazyn",
+        category: "terrain",
+        authors: ["Neressia"],
+        temporary: true,
+        author: "Neressia"
+    },
+    {
+        points: [[91,-492],[124,-491],[124,-462],[91,-462]],
+        lineColor: "#ff00f7",
+        fillColor: "#ff00f733",
+        closePath: true,
+        name: "Wieża",
+        category: "terrain",
+        authors: ["Neressia"],
+        temporary: true,
+        author: "Neressia"
+    },
+    {
+        points: [[148,-555],[150,-204],[158,-204],[154,-555]],
+        lineColor: "#ff00f7",
+        fillColor: "#ff00f733",
+        closePath: true,
+        name: "Wiadukt",
+        category: "terrain",
+        authors: ["Neressia"],
+        temporary: true,
+        author: "Neressia"
+    },
+    {
+        points: [[148,-556],[129,-556],[129,-510],[148,-509]],
+        lineColor: "#ff00f7",
+        fillColor: "#ff00f733",
+        closePath: true,
+        name: "Stacja",
+        category: "terrain",
+        authors: ["Neressia"],
+        temporary: true,
+        author: "Neressia"
+    },
 ]);
