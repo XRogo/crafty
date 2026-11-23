@@ -151,4 +151,15 @@ window.registerPolygons([
         authors: ["Mikusierro","MacKrater","Neressia","Rysio_13","Agna28","Lottunia","Dasikor","K_O_Ozzy"],
         author: "Mikusierro"
     },
+    {
+        points: [[-108,-1229],[-51,-1228],[-49,-1160],[-110,-1161]],
+        lineColor: "#ff0000",
+        fillColor: "#ff000033",
+        closePath: true,
+        name: "Jarmark",
+        category: "terrain",
+        authors: ["MacKrater","Neressia"],
+        temporary: true,
+        author: "MacKrater"
+    },
 ]);
