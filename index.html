@@ -429,7 +429,7 @@
 
             #history-panel {
                 right: 10px !important;
-                width: min(350px, calc(100vw - 20px)) !important;
+                width: min(620px, calc(100vw - 20px)) !important;
             }
         }
     </style>
@@ -481,6 +481,8 @@
             <button class="toggle-btn" data-cat="rail">Tory</button>
             <button class="toggle-btn" data-cat="pin">Pineski</button>
             <button class="toggle-btn off" data-type="projects">Projekty</button>
+            <button id="player-filter-toggle" class="toggle-btn off" type="button">Gracze [wszyscy]</button>
+            <div id="player-filter-list" style="display:none; max-height:35vh; overflow-y:auto; padding:8px; background:rgba(0,0,0,0.92); border:1px solid #0f0; border-radius:8px;"></div>
         </div>
 
         <!-- NOWY KONTENER STATUSU I ZAPISU -->
@@ -496,8 +498,8 @@
 
         <!-- PRZYCISKI DEBUG / RENDER -->
         <button id="toggle-dev-tools-btn" class="toggle-btn off"
-            style="position: absolute; bottom: 130px; left: 15px; z-index: 30;">Narzędzia DEV [OFF]</button>
-        <div id="render-tools" style="position: absolute; bottom: 175px; left: 15px; display: none; flex-direction: column; gap: 8px; z-index: 30;">
+            style="position: absolute; bottom: 20px; left: 15px; z-index: 30;">Narzędzia DEV [OFF]</button>
+        <div id="render-tools" style="position: absolute; bottom: 65px; left: 15px; display: none; flex-direction: column; gap: 8px; z-index: 30;">
             <button id="toggle-grid-btn" class="toggle-btn off">Siatka [OFF]</button>
             <button id="toggle-select-tiles-btn" class="toggle-btn off">Wybierz kafelki [OFF]</button>
         </div>
@@ -696,7 +698,7 @@
 
         <!-- PANEL HISTORII -->
         <div id="history-panel" class="premium-panel"
-            style="position:fixed; top:70px; right:15px; width:350px; height:70vh; display:none; z-index:1000; overflow-y:auto;">
+            style="position:fixed; top:70px; right:15px; width:620px; max-width:calc(100vw - 30px); height:80vh; display:none; z-index:1000; overflow-y:auto;">
             <h3 style="text-align:center; border-bottom:1px solid #0f0; padding-bottom:10px;">HISTORIA ZMIAN</h3>
             <label for="history-version-select" style="display:block; margin-top:12px; color:#aaa; font-size:12px;">WERSJA MAPY</label>
             <select id="history-version-select" aria-label="Wybierz wersję mapy"></select>

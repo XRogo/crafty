@@ -24,7 +24,6 @@ let selectingTiles = false;
 let selectedTiles = new Set();
 let renderListDirty = false;
 const SNAP_THRESHOLD = 10;
-let history = [];
 let selectedPolygonIndex = -1;
 let isEditing = false;
 let needsRedraw = true;
@@ -216,15 +215,17 @@ function initializeHistoryVersionSelector() {
     const selector = document.getElementById('history-version-select');
     if (!selector) return;
     selector.innerHTML = '';
-    window.polygonHistoryVersions.forEach((version, index) => {
+    for (let index = window.polygonHistoryVersions.length - 1; index >= 0; index--) {
+        const version = window.polygonHistoryVersions[index];
         const option = document.createElement('option');
         option.value = String(index);
         option.textContent = version.filename;
         selector.appendChild(option);
-    });
+    }
     selector.value = String(window.currentPolygonHistoryIndex);
     selector.onchange = () => setPolygonHistoryVersion(Number(selector.value));
     updateHistoryViewStatus();
+    updateHistoryUI();
 }
 
 initializeHistoryVersionSelector();
@@ -442,6 +443,14 @@ window.visibleCategories = {
     'pin': true
 };
 window.visibleTemporary = false;
+const selectedPolygonAuthors = new Set();
+
+function isPolygonVisible(polygon) {
+    if (!window.visibleCategories[polygon.category]) return false;
+    if (polygon.temporary && !window.visibleTemporary) return false;
+    if (selectedPolygonAuthors.size === 0) return true;
+    return parseAuthors(polygon).some(author => selectedPolygonAuthors.has(author.toLowerCase()));
+}
 
 //wczytywanie mapy â€“ resize i skalowanie
 function resize() {
@@ -717,28 +726,67 @@ function isPointInPolygon(x, z, points) {
     return inside;
 }
 
-// Historia zmian
-function logChange(action, poly) {
-    const entry = {
-        time: new Date().toLocaleTimeString(),
-        author: poly.author || "Nieznany",
-        action: action,
-        name: poly.name || "Bez nazwy",
-        data: JSON.parse(JSON.stringify(poly))
-    };
-    history.push(entry);
-    updateHistoryUI();
-}
-
 function updateHistoryUI() {
     const list = document.getElementById('history-list');
-    list.innerHTML = history.map((e, i) => `
-        <div class="history-item" style="padding:10px; border-bottom:1px solid #333; cursor:pointer;" onclick="previewHistory(${i})">
-            <img src="${getPlayerHead(e.author)}" class="mc-head">
-            <strong>${e.author}</strong> - ${e.time}<br>
-            <span style="color:#aaa">${e.action}: ${e.name}</span>
-        </div>
-    `).reverse().join('');
+    if (!list) return;
+    list.replaceChildren();
+
+    const entries = [];
+    window.polygonHistoryVersions.forEach((version, versionIndex) => {
+        const previousPolygons = versionIndex > 0 ? window.buildPolygonSnapshot(versionIndex - 1) : [];
+        version.operations.forEach(operation => {
+            const polygon = operation.polygon ||
+                previousPolygons.find(item => item.id === operation.id);
+            entries.push({
+                versionIndex,
+                filename: version.filename,
+                action: operation.type,
+                polygon,
+                id: operation.id
+            });
+        });
+        if (versionIndex === 0 && version.operations.length === 0) {
+            entries.push({
+                versionIndex,
+                filename: version.filename,
+                action: 'baseline',
+                count: window.buildPolygonSnapshot(versionIndex).length
+            });
+        }
+    });
+
+    const actionLabels = {
+        create: 'Dodano',
+        edit: 'Edytowano',
+        delete: 'Usunięto',
+        baseline: 'Początkowy stan'
+    };
+
+    entries.reverse().forEach(entry => {
+        const row = document.createElement('button');
+        row.type = 'button';
+        row.className = 'history-item';
+        row.style.cssText = 'display:block;width:100%;padding:12px;margin:0 0 8px;text-align:left;background:rgba(0,0,0,0.65);color:#0f0;border:1px solid #245224;border-radius:6px;cursor:pointer;font:13px Courier New,monospace;';
+
+        const title = document.createElement('strong');
+        const name = entry.polygon ? (entry.polygon.name || 'Bez nazwy') : `ID ${entry.id || ''}`;
+        title.textContent = entry.action === 'baseline'
+            ? `${actionLabels.baseline} — ${entry.count} poligonów`
+            : `${actionLabels[entry.action] || 'Zmiana'}: ${name}`;
+        const details = document.createElement('span');
+        const authors = entry.polygon
+            ? parseAuthors(entry.polygon).join(', ') || entry.polygon.author || 'Nieznany'
+            : 'Historia mapy';
+        details.textContent = `\n${authors} · ${entry.filename}`;
+        details.style.cssText = 'display:block;margin-top:5px;color:#aaa;white-space:normal;';
+        row.append(title, details);
+        row.addEventListener('click', () => setPolygonHistoryVersion(entry.versionIndex));
+        list.appendChild(row);
+    });
+
+    if (!entries.length) {
+        list.textContent = 'Brak zapisanych zmian.';
+    }
 }
 
 function getPlayerHead(nick) {
@@ -798,6 +846,7 @@ function drawTextAlongPath(text, points, offset = 0, color = 'white', isSelected
 
 //wyĹ›wietlanie poligonĂłw â€“ RYSOWANIE (Z RESTORE!)
 function drawPolygons() {
+    polygonLabelsToDraw = [];
     ctx.save();
     ctx.scale(pixelRatio, pixelRatio);
     const { scale: ppb } = getPixelScale();
@@ -809,8 +858,7 @@ function drawPolygons() {
     const bounds = getViewportBounds();
 
     polygons.forEach((p, idx) => {
-        if (!window.visibleCategories[p.category]) return;
-        if (p.temporary && !window.visibleTemporary) return;
+        if (!isPolygonVisible(p)) return;
 
         let points = p.points || p.location || [];
         if (!points.length) return;
@@ -855,21 +903,38 @@ function drawPolygons() {
         }
 
         if (name && (['terrain', 'station', 'intersection', 'pin'].includes(category) || zoom > 3)) {
-            if (['road', 'rail'].includes(category) && points.length >= 2) {
-                drawTextAlongPath(name, points, 0, isSelected ? '#0f0' : 'white', isSelected);
-            } else {
-                ctx.font = `${(isSelected ? 18 : 14) / zoom}px Arial`;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                const [cx, cz] = category === 'pin' && points.length === 1 ? points[0] : calculateCentroid(points);
-                ctx.strokeStyle = 'black';
-                ctx.lineWidth = 2 / zoom;
-                let displayName = name.split('{')[0].trim();
-                ctx.strokeText(displayName, cx, cz - (category === 'pin' ? 15 / zoom : 0));
-                ctx.fillStyle = isSelected ? '#0f0' : 'white';
-                ctx.fillText(displayName, cx, cz - (category === 'pin' ? 15 / zoom : 0));
-            }
+            polygonLabelsToDraw.push({ p, points, isSelected, category, name });
         }
+    });
+    ctx.restore();
+}
+
+let polygonLabelsToDraw = [];
+
+function drawPolygonLabels() {
+    ctx.save();
+    ctx.scale(pixelRatio, pixelRatio);
+    const { scale: ppb } = getPixelScale();
+    const cx = innerWidth / 2, cy = innerHeight / 2;
+    ctx.translate(cx, cy);
+    ctx.scale(ppb, ppb);
+    ctx.translate(-viewX, -viewY);
+
+    polygonLabelsToDraw.forEach(({ points, isSelected, category, name }) => {
+        if (['road', 'rail'].includes(category) && points.length >= 2) {
+            drawTextAlongPath(name, points, 0, isSelected ? '#0f0' : 'white', isSelected);
+            return;
+        }
+        ctx.font = `${(isSelected ? 18 : 14) / zoom}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const [cx, cz] = category === 'pin' && points.length === 1 ? points[0] : calculateCentroid(points);
+        ctx.strokeStyle = 'black';
+        ctx.lineWidth = 2 / zoom;
+        const displayName = name.split('{')[0].trim();
+        ctx.strokeText(displayName, cx, cz - (category === 'pin' ? 15 / zoom : 0));
+        ctx.fillStyle = isSelected ? '#0f0' : 'white';
+        ctx.fillText(displayName, cx, cz - (category === 'pin' ? 15 / zoom : 0));
     });
     ctx.restore();
 }
@@ -975,6 +1040,7 @@ function pointDistanceToSegment(px, pz, x1, z1, x2, z2) {
 function getConnectionPoints() {
     let points = [];
     polygons.forEach(p => {
+        if (!isPolygonVisible(p)) return;
         if (p.category === 'station') {
             if (p.in) p.in.forEach(pos => points.push({ pos: pos, name: `${p.name}[in]`, category: p.category, color: p.lineColor }));
             if (p.out) p.out.forEach(pos => points.push({ pos: pos, name: `${p.name}[out]`, category: p.category, color: p.lineColor }));
@@ -1415,8 +1481,7 @@ canvas.addEventListener('pointerup', e => {
             let foundIndices = [];
             for (let i = polygons.length - 1; i >= 0; i--) {
                 const p = polygons[i];
-                if (!window.visibleCategories[p.category]) continue;
-                if (p.temporary && !window.visibleTemporary) continue;
+                if (!isPolygonVisible(p)) continue;
 
                 const pts = p.points || p.location || [];
                 if (pts.length === 0) continue;
@@ -1603,7 +1668,6 @@ if (document.getElementById('confirm-save-btn')) {
             const oldAuthors = window.tempOriginalAuthors || [];
             
             if (selectedPolygonIndex !== -1) {
-                logChange("Edycja", poly);
                 window.pendingPolygonOperations.push({
                     type: "edit",
                     id: poly.id,
@@ -1614,7 +1678,6 @@ if (document.getElementById('confirm-save-btn')) {
                 selectedPolygonIndex = -1;
                 hoverPoint = -1;
             } else {
-                logChange("Dodanie", poly);
                 window.pendingPolygonOperations.push({
                     type: "create",
                     id: poly.id,
@@ -2174,6 +2237,7 @@ document.getElementById('rail-add-photo-btn')?.addEventListener('click', () => {
 // Przełączniki widoczności
 document.querySelectorAll('#category-toggle .toggle-btn').forEach(btn => {
     btn.addEventListener('click', () => {
+        if (btn.id === 'player-filter-toggle') return;
         if (btn.dataset.cat) {
             const cat = btn.dataset.cat;
             window.visibleCategories[cat] = !window.visibleCategories[cat];
@@ -2184,6 +2248,41 @@ document.querySelectorAll('#category-toggle .toggle-btn').forEach(btn => {
         draw();
     });
 });
+
+const playerFilterToggle = document.getElementById('player-filter-toggle');
+const playerFilterList = document.getElementById('player-filter-list');
+if (playerFilterToggle && playerFilterList) {
+    (window.playersData || []).forEach(player => {
+        const label = document.createElement('label');
+        label.style.cssText = 'display:flex;align-items:center;gap:8px;padding:5px;color:#0f0;font:12px Courier New,monospace;cursor:pointer;';
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.value = player.nick;
+        checkbox.addEventListener('change', () => {
+            const name = player.nick.toLowerCase();
+            if (checkbox.checked) selectedPolygonAuthors.add(name);
+            else selectedPolygonAuthors.delete(name);
+            playerFilterToggle.classList.toggle('off', selectedPolygonAuthors.size === 0);
+            const filterLabel = selectedPolygonAuthors.size
+                ? `Gracze (${selectedPolygonAuthors.size})`
+                : 'Gracze [wszyscy]';
+            playerFilterToggle.textContent = filterLabel + (playerFilterList.style.display === 'block' ? ' ▲' : '');
+            draw();
+        });
+        const name = document.createElement('span');
+        name.textContent = player.nick;
+        label.append(checkbox, name);
+        playerFilterList.appendChild(label);
+    });
+
+    playerFilterToggle.addEventListener('click', () => {
+        const isOpen = playerFilterList.style.display === 'block';
+        playerFilterList.style.display = isOpen ? 'none' : 'block';
+        playerFilterToggle.textContent = selectedPolygonAuthors.size
+            ? `Gracze (${selectedPolygonAuthors.size})${isOpen ? '' : ' ▲'}`
+            : `Gracze [wszyscy]${isOpen ? '' : ' ▲'}`;
+    });
+}
 
 // LISTENERY NARZĘDZI RENDEROWANIA
 document.getElementById('toggle-grid-btn')?.addEventListener('click', function() {
@@ -2321,7 +2420,6 @@ function deletePolygon(idx) {
     }
     showCustomConfirm('Czy na pewno chcesz usun\u0105\u0107 ten element?', () => {
         const p = polygons[idx];
-        logChange('USUWANIE', p);
         window.pendingPolygonOperations.push({ type: 'delete', id: p.id });
         notifyChange(p.authors || []); // [] doda "Public" do dirtyAuthors
         polygons.splice(idx, 1);
@@ -2365,13 +2463,14 @@ function drawStationInternalLines() {
     ctx.translate(-viewX, -viewY);
 
     polygons.forEach(p => {
+        if (!isPolygonVisible(p)) return;
         if (p.category === 'station' && p.out && p.out.length > 1) {
             // Znajdź połączenia dla każdego OUT
             const outConnections = p.out.map(pos => {
                 // Szukamy linii kolejowej, która zaczyna się lub kończy w tym punkcie
                 const connectedLine = polygons.find(poly => {
-                    if (poly.category !== 'rail') return false;
-                    const pts = poly.points || [];
+                    if (!isPolygonVisible(poly) || poly.category !== 'rail') return false;
+                    const pts = poly.points || poly.location || [];
                     if (pts.length < 2) return false;
                     const start = pts[0], end = pts[pts.length - 1];
                     return (Math.hypot(start[0] - pos[0], start[1] - pos[1]) < 1) || 
@@ -2389,8 +2488,12 @@ function drawStationInternalLines() {
                     // Rysujemy tylko jeśli oba punkty są "używane" (lub zawsze?)
                     // Użytkownik napisał: "jeśli do obu out są dociągnięte linie kolejowe"
                     
-                    const isC1Connected = polygons.some(poly => poly.category === 'rail' && (poly.points||[]).some(pt => Math.hypot(pt[0]-c1.pos[0], pt[1]-c1.pos[1]) < 1));
-                    const isC2Connected = polygons.some(poly => poly.category === 'rail' && (poly.points||[]).some(pt => Math.hypot(pt[0]-c2.pos[0], pt[1]-c2.pos[1]) < 1));
+                    const isC1Connected = polygons.some(poly =>
+                        isPolygonVisible(poly) && poly.category === 'rail' &&
+                        (poly.points || poly.location || []).some(pt => Math.hypot(pt[0] - c1.pos[0], pt[1] - c1.pos[1]) < 1));
+                    const isC2Connected = polygons.some(poly =>
+                        isPolygonVisible(poly) && poly.category === 'rail' &&
+                        (poly.points || poly.location || []).some(pt => Math.hypot(pt[0] - c2.pos[0], pt[1] - c2.pos[1]) < 1));
 
                     if (isC1Connected && isC2Connected) {
                         ctx.beginPath();
@@ -2449,6 +2552,7 @@ function animationLoop() {
         });
         ctx.restore();
     }
+    drawPolygonLabels();
     updateInfo();
 
 
