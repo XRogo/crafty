@@ -1,97 +1,78 @@
 window.playersData = [
     {
         nick: "XRogo",
-        icon: "head/rogo.png",
-        poligon: "poligons/xrogo.js"
+        icon: "head/rogo.png"
     },
     {
         nick: "Mikusierro",
-        icon: "head/mikusierro.png",
-        poligon: "poligons/mikusierro.js"
+        icon: "head/mikusierro.png"
     },
     {
         nick: "MacKrater",
-        icon: "head/maku.png",
-        poligon: "poligons/mackrater.js"
+        icon: "head/maku.png"
     },
     {
         nick: "Neressia",
-        icon: "head/neressia.png",
-        poligon: "poligons/neressia.js"
+        icon: "head/neressia.png"
     },
     {
         nick: "MorrisEk",
-        icon: "head/moris.png",
-        poligon: "poligons/morrisek.js"
+        icon: "head/moris.png"
     },
     {
         nick: "Coolphone",
-        icon: "head/coolphone.png",
-        poligon: "poligons/coolphone.js"
+        icon: "head/coolphone.png"
     },
     {
         nick: "Rysio_13",
-        icon: "head/rysio.png",
-        poligon: "poligons/rysio_13.js"
+        icon: "head/rysio.png"
     },
     {
         nick: "Daneyi",
-        icon: "head/daneyi.png",
-        poligon: "poligons/daneyi.js"
+        icon: "head/daneyi.png"
     },
     {
         nick: "papier70",
-        icon: "head/papierek.png",
-        poligon: "poligons/papier70.js"
+        icon: "head/papierek.png"
     },
     {
         nick: "Zetie",
-        icon: "head/zetie.png",
-        poligon: "poligons/zetie.js"
+        icon: "head/zetie.png"
     },
     {
         nick: "Agna28",
-        icon: "head/agna.png",
-        poligon: "poligons/agna.js"
+        icon: "head/agna.png"
     },
     {
         nick: "Lottunia",
-        icon: "head/loti.png",
-        poligon: "poligons/lottunia.js"
+        icon: "head/loti.png"
     },
     {
         nick: "Nyterk",
-        icon: "head/nyterk.png",
-        poligon: "poligons/nyterk.js"
+        icon: "head/nyterk.png"
     },
     {
         nick: "Dasikor",
-        icon: "head/dasikor.png",
-        poligon: "poligons/dasikor.js"
+        icon: "head/dasikor.png"
     },
     {
         nick: "K_O_Ozzy",
-        icon: "head/ozzi.png",
-        poligon: "poligons/ozzi.js"
+        icon: "head/ozzi.png"
     },
     {
         nick: "Yakuberek",
-        icon: "head/yakuberek.png",
-        poligon: "poligons/yakuberek.js"
+        icon: "head/yakuberek.png"
     },
     {
         nick: "TheBlackRanger",
-        icon: "head/renger.png",
-        poligon: "poligons/renger.js"
+        icon: "head/renger.png"
     },
     {
         nick: "Victors",
-        icon: "head/victors.png",
-        poligon: "poligons/victors.js"
+        icon: "head/victors.png"
     },
     {
         nick: "PiterPanMis",
-        icon: "head/piter.png",
-        poligon: "poligons/piter.js"
+        icon: "head/piter.png"
     }
 ];

@@ -22,6 +22,7 @@ let isEndSnapped = false;
 let showGrid = false;
 let selectingTiles = false;
 let selectedTiles = new Set();
+let renderListDirty = false;
 const SNAP_THRESHOLD = 10;
 let history = [];
 let selectedPolygonIndex = -1;
@@ -32,6 +33,8 @@ let draggedExitIndex = -1;
 let originalAuthors = []; // Śledzenie autorów przed edycją
 window.hasUnsavedChanges = false;
 window.dirtyAuthors = new Set();
+window.pendingPolygonOperations = [];
+window.isHistoricalView = false;
 
 function notifyChange(authors) {
     window.hasUnsavedChanges = true;
@@ -118,51 +121,113 @@ function parseAuthors(p) {
     return [];
 }
 
+function createUniquePolygonId() {
+    let id;
+    do {
+        id = crypto.randomUUID();
+    } while (window.polygonHistorySeenIds.has(id));
+    window.polygonHistorySeenIds.add(id);
+    return id;
+}
+
 function loadPolygonsFromData() {
-    const processData = (data) => {
-        if (!data || !Array.isArray(data)) return;
-        const newPolys = data.map(p => {
-            const poly = { ...p };
-            // Normalizacja tylko niezbędnych pól, zachowując resztę bez zmian
-            if (!poly.points && poly.location) poly.points = poly.location;
-            if (!poly.points) poly.points = [];
-            
-            if (!poly.lineColor) poly.lineColor = '#00ff00';
-            if (!poly.fillColor) poly.fillColor = '#00ff0033';
-            if (poly.closePath === undefined) poly.closePath = true;
-            
-            poly.category = poly.category === 1 ? 'terrain' : poly.category === 3 ? 'road' : poly.category || 'terrain';
-            poly.authors = parseAuthors(p);
-            return poly;
-        });
-
-        newPolys.forEach(np => {
-            const existing = polygons.find(p => (JSON.stringify(p.points || p.location) === JSON.stringify(np.points || np.location)));
-            if (existing) {
-                // PoĹ‚Ä…cz wĹ‚aĹ›ciwoĹ›ci (np. dodaj panorama jeĹ›li brakowaĹ‚o)
-                Object.assign(existing, np);
-            } else {
-                polygons.push(np);
-            }
-            needsRedraw = true;
-        });
-    };
-
-    if (window.polygonsData) {
-        processData(window.polygonsData);
-        window.polygonsData = null; // WyczyĹ›Ä‡ po przetworzeniu
-    }
-    if (window.extraPolygons) {
-        processData(window.extraPolygons);
-        window.extraPolygons = []; // WyczyĹ›Ä‡ po przetworzeniu
-    }
+    const data = window.currentPolygonSnapshot;
+    if (!Array.isArray(data)) return;
+    polygons = data.map(source => {
+        const polygon = { ...source };
+        if (!polygon.points && polygon.location) polygon.points = polygon.location;
+        if (!polygon.points) polygon.points = [];
+        if (!polygon.lineColor) polygon.lineColor = '#00ff00';
+        if (!polygon.fillColor) polygon.fillColor = '#00ff0033';
+        if (polygon.closePath === undefined) polygon.closePath = true;
+        polygon.category = polygon.category === 1 ? 'terrain' : polygon.category === 3 ? 'road' : polygon.category || 'terrain';
+        polygon.authors = parseAuthors(source);
+        return polygon;
+    });
+    selectedPolygonIndex = -1;
+    const infoPanel = document.getElementById('poly-info-panel');
+    if (infoPanel) infoPanel.style.display = 'none';
+    needsRedraw = true;
 }
 window.loadPolygonsFromData = loadPolygonsFromData;
 loadPolygonsFromData();
-// PonĂłw kilka razy dla asynchronicznych skryptĂłw
-setTimeout(loadPolygonsFromData, 500);
-setTimeout(loadPolygonsFromData, 2000);
-setTimeout(loadPolygonsFromData, 5000);
+
+function updateHistoryViewStatus() {
+    const status = document.getElementById('history-view-status');
+    const version = window.polygonHistoryVersions[window.currentPolygonHistoryIndex];
+    if (!status) return;
+    if (!version) {
+        status.textContent = `Nie udało się załadować historii: ${window.polygonHistoryLoadError || 'brak dostępnych wersji.'}`;
+        return;
+    }
+    status.textContent = window.isHistoricalView
+        ? `Tryb podglądu: ${version.filename}`
+        : `Najnowsza wersja: ${version.filename}`;
+    if (window.polygonHistoryLoadError) {
+        status.textContent += ` | Ostrzeżenie: ${window.polygonHistoryLoadError}`;
+    }
+}
+
+function setPolygonHistoryVersion(index, discardUnsavedChanges) {
+    const version = window.polygonHistoryVersions[index];
+    if (!version) return false;
+    if (index !== window.currentPolygonHistoryIndex && (isDrawing || isEditing)) {
+        alert('Najpierw zakończ albo anuluj bieżące rysowanie lub edycję.');
+        const selector = document.getElementById('history-version-select');
+        if (selector) selector.value = String(window.currentPolygonHistoryIndex);
+        return false;
+    }
+    if (window.hasUnsavedChanges && !discardUnsavedChanges &&
+        !confirm('Masz niezapisane zmiany. Odrzucić je i zmienić wersję mapy?')) {
+        const selector = document.getElementById('history-version-select');
+        if (selector) selector.value = String(window.currentPolygonHistoryIndex);
+        return false;
+    }
+
+    window.currentPolygonHistoryIndex = index;
+    window.isHistoricalView = index < window.polygonHistoryVersions.length - 1;
+    window.currentPolygonSnapshot = window.buildPolygonSnapshot(index);
+    window.pendingPolygonOperations = [];
+    window.hasUnsavedChanges = renderListDirty;
+    window.dirtyAuthors.clear();
+    const saveButton = document.getElementById('submit-changes-btn');
+    if (saveButton) saveButton.style.display = renderListDirty ? 'block' : 'none';
+    const selector = document.getElementById('history-version-select');
+    if (selector) selector.value = String(index);
+    loadPolygonsFromData();
+    updateHistoryViewStatus();
+    draw();
+    return true;
+}
+
+function switchToLatestForEditing() {
+    if (!window.canAppendPolygonHistory) {
+        alert('Nie można bezpiecznie edytować mapy, ponieważ nie udało się odczytać pełnej historii. Odśwież stronę i spróbuj ponownie.');
+        return false;
+    }
+    if (!window.isHistoricalView) return true;
+    const latestIndex = window.polygonHistoryVersions.length - 1;
+    if (!setPolygonHistoryVersion(latestIndex, true)) return false;
+    updateHistoryViewStatus();
+    return true;
+}
+
+function initializeHistoryVersionSelector() {
+    const selector = document.getElementById('history-version-select');
+    if (!selector) return;
+    selector.innerHTML = '';
+    window.polygonHistoryVersions.forEach((version, index) => {
+        const option = document.createElement('option');
+        option.value = String(index);
+        option.textContent = version.filename;
+        selector.appendChild(option);
+    });
+    selector.value = String(window.currentPolygonHistoryIndex);
+    selector.onchange = () => setPolygonHistoryVersion(Number(selector.value));
+    updateHistoryViewStatus();
+}
+
+initializeHistoryVersionSelector();
 
 let editorConfig = {
     category: 'terrain',
@@ -579,6 +644,14 @@ function screenToWorld(x, y) {
 slider.addEventListener('input', e => {
     zoom = parseFloat(e.target.value);
     draw();
+});
+
+document.getElementById('toggle-dev-tools-btn')?.addEventListener('click', function() {
+    const tools = document.getElementById('render-tools');
+    const isOpen = tools.style.display === 'flex';
+    tools.style.display = isOpen ? 'none' : 'flex';
+    this.classList.toggle('off', isOpen);
+    this.textContent = isOpen ? 'Narzędzia DEV [OFF]' : 'Narzędzia DEV [ON]';
 });
 
 function updateInfo() {
@@ -1277,6 +1350,7 @@ canvas.addEventListener('pointerup', e => {
             const key = `${tx}_${ty}`;
             if (selectedTiles.has(key)) selectedTiles.delete(key);
             else selectedTiles.add(key);
+            renderListDirty = true;
             
             // Poinformuj o zmianach (aby przycisk WPROWADŹ ZMIANY się pojawił)
             notifyChange();
@@ -1465,6 +1539,7 @@ function updateRailInfo() {
 
 //zapis
 function savePolygon() {
+    if (!switchToLatestForEditing()) return;
     let minPoints = editorConfig.closePath ? 3 : 2;
     if (editorConfig.category === 'intersection' || editorConfig.category === 'pin') minPoints = 1;
     if (tempPoints.length < minPoints) {
@@ -1507,6 +1582,11 @@ function savePolygon() {
     poly.authors = selAuthors;
 
     poly.author = poly.authors[0] || "Nieznany";
+    if (isEditing && selectedPolygonIndex !== -1) {
+        poly.id = polygons[selectedPolygonIndex].id;
+    } else {
+        poly.id = createUniquePolygonId();
+    }
 
     // Zamiast od razu zapisywać, otwórz modal potwierdzenia z kodem
     window.tempPolyToSave = poly;
@@ -1524,12 +1604,22 @@ if (document.getElementById('confirm-save-btn')) {
             
             if (selectedPolygonIndex !== -1) {
                 logChange("Edycja", poly);
+                window.pendingPolygonOperations.push({
+                    type: "edit",
+                    id: poly.id,
+                    polygon: JSON.parse(JSON.stringify(poly))
+                });
                 polygons[selectedPolygonIndex] = poly;
                 isEditing = false;
                 selectedPolygonIndex = -1;
                 hoverPoint = -1;
             } else {
                 logChange("Dodanie", poly);
+                window.pendingPolygonOperations.push({
+                    type: "create",
+                    id: poly.id,
+                    polygon: JSON.parse(JSON.stringify(poly))
+                });
                 polygons.push(poly);
             }
 
@@ -1833,6 +1923,7 @@ if (railPolyDesc) {
 
 if (startDrawingBtn) {
     startDrawingBtn.addEventListener('click', () => {
+        if (!isDrawing && !switchToLatestForEditing()) return;
         if (editorPanel) editorPanel.style.display = 'none';
         if (!isDrawing) {
             isDrawing = true;
@@ -1853,6 +1944,7 @@ if (startDrawingBtn) {
 
 if (railStartDrawing) {
     railStartDrawing.addEventListener('click', () => {
+        if (!isDrawing && !switchToLatestForEditing()) return;
         if (railEditorPanel) railEditorPanel.style.display = 'none';
         if (!isDrawing) {
             isDrawing = true;
@@ -1955,6 +2047,7 @@ if (openAddMenuBtn) {
             alert('Zako\u0143cz obecne rysowanie/edycj\u0119 przed dodaniem nowego elementu!');
             return;
         }
+        if (!switchToLatestForEditing()) return;
         addMenuPanel.style.display = 'block';
         addMenuMain.style.display = 'flex';
         addMenuRail.style.display = 'none';
@@ -1991,6 +2084,7 @@ document.querySelectorAll('.add-sub-opt').forEach(btn => {
 });
 
 function startNewPolygon(cat) {
+    if (!switchToLatestForEditing()) return;
     addMenuPanel.style.display = 'none';
     isDrawing = true;
     isEditing = false;
@@ -2103,6 +2197,7 @@ document.getElementById('toggle-grid-btn')?.addEventListener('click', function()
 });
 
 document.getElementById('toggle-select-tiles-btn')?.addEventListener('click', function() {
+    if (!selectingTiles && !switchToLatestForEditing()) return;
     selectingTiles = !selectingTiles;
     this.classList.toggle('off');
     this.textContent = selectingTiles ? 'Wybierz kafelki [ON]' : 'Wybierz kafelki [OFF]';
@@ -2137,8 +2232,17 @@ function loadSelectedTiles() {
 }
 
 function editPolygon(idx) {
+    const selected = polygons[idx];
+    if (!selected) return;
+    const polygonId = selected.id;
+    if (!switchToLatestForEditing()) return;
+    if (window.isHistoricalView) return;
+    idx = polygons.findIndex(polygon => polygon.id === polygonId);
     const p = polygons[idx];
-    if (!p) return;
+    if (!p) {
+        alert('Tego poligonu nie ma już w najnowszej wersji mapy.');
+        return;
+    }
 
     selectedPolygonIndex = idx;
     isDrawing = true;
@@ -2206,9 +2310,19 @@ function editPolygon(idx) {
 
 function deletePolygon(idx) {
     if (idx === -1) return;
+    const selected = polygons[idx];
+    if (!selected) return;
+    const polygonId = selected.id;
+    if (!switchToLatestForEditing()) return;
+    idx = polygons.findIndex(polygon => polygon.id === polygonId);
+    if (idx === -1) {
+        alert('Tego poligonu nie ma już w najnowszej wersji mapy.');
+        return;
+    }
     showCustomConfirm('Czy na pewno chcesz usun\u0105\u0107 ten element?', () => {
         const p = polygons[idx];
         logChange('USUWANIE', p);
+        window.pendingPolygonOperations.push({ type: 'delete', id: p.id });
         notifyChange(p.authors || []); // [] doda "Public" do dirtyAuthors
         polygons.splice(idx, 1);
 
@@ -2353,7 +2467,7 @@ draw();
    INTEGRACJA Z BACKENDEM (RENDER)
    ============================================================== */
 
-const SERVER_URL = "https://mapa-backend-mtbw.onrender.com";
+const SERVER_URL = window.MAP_SERVER_URL;
 
 function updateServerStatus() {
     // Wyłączone – nie budzimy serwera automatycznie
@@ -2410,6 +2524,19 @@ function requestPassword() {
 }
 
 document.getElementById('submit-changes-btn').addEventListener('click', async () => {
+    if (window.isHistoricalView) {
+        switchToLatestForEditing();
+        return;
+    }
+    if (window.pendingPolygonOperations.length > 0 && !window.canAppendPolygonHistory) {
+        alert('Nie można bezpiecznie zapisać zmian, ponieważ historia nie została w pełni załadowana. Odśwież stronę i spróbuj ponownie.');
+        return;
+    }
+    if (window.pendingPolygonOperations.length === 0 && !renderListDirty) {
+        alert('Brak zmian do zapisania.');
+        return;
+    }
+
     const pass = await requestPassword();
     if (!pass) return;
 
@@ -2419,35 +2546,15 @@ document.getElementById('submit-changes-btn').addEventListener('click', async ()
     btn.textContent = "ŁĄCZENIE...";
     btn.disabled = true;
 
-    // Przygotowanie paczki zmian dla wszystkich dotkniętych autorów
     const batch = [];
-    const authorsToSync = window.dirtyAuthors.size > 0 ? Array.from(window.dirtyAuthors) : (currentUser ? [currentUser.nick] : []);
-
-    authorsToSync.forEach(auth => {
-        let myPolys = [];
-        let path = `poligons/${auth.toLowerCase()}.js`;
-
-        if (auth === "Public") {
-            myPolys = polygons.filter(p => !p.authors || p.authors.length === 0);
-            path = "poligons/public.js";
-        } else if (auth === "Mixed") {
-            myPolys = polygons.filter(p => p.authors && p.authors.length > 1);
-            path = "poligons/pozycje.js";
-        } else {
-            // Poligony z dokładnie jednym autorem
-            myPolys = polygons.filter(p => p.authors && p.authors.length === 1 && p.authors[0] === auth);
-        }
-
-        const formattedList = myPolys.map(p => formatPolygon(p)).join('\n');
+    if (window.pendingPolygonOperations.length > 0) {
         batch.push({
-            author: auth,
-            path: path,
-            content: `window.registerPolygons([\n${formattedList}\n]);`
+            type: 'polygon-history',
+            author: currentUser ? currentUser.nick : 'Unknown',
+            baseVersion: window.polygonHistoryVersions[window.currentPolygonHistoryIndex]?.filename,
+            operations: JSON.parse(JSON.stringify(window.pendingPolygonOperations))
         });
-    });
-
-    // DODAJ PLIK RENDEROWANIA JEŚLI SĄ WYBRANE KAFELKI
-    if (selectedTiles.size > 0) {
+    } else if (renderListDirty) {
         batch.push({
             author: "System",
             path: "ktore_render.txt",
@@ -2465,15 +2572,37 @@ document.getElementById('submit-changes-btn').addEventListener('click', async ()
         })
     })
     .then(async response => {
-        const txt = await response.text();
         if (response.ok) {
-            alert("SUKCES: Zmiany zostały wysłane do GitHuba.\n\nStrona mapy zaktualizuje się automatycznie za około 1-2 minuty (po deployu GitHuba).");
-            window.hasUnsavedChanges = false;
+            const result = await response.json();
+            if (result.historyFile) {
+                const filename = result.historyFile.split('/').pop();
+                window.polygonHistoryVersions.push({
+                    filename,
+                    operations: JSON.parse(JSON.stringify(window.pendingPolygonOperations))
+                });
+                window.currentPolygonHistoryIndex = window.polygonHistoryVersions.length - 1;
+                window.currentPolygonSnapshot = JSON.parse(JSON.stringify(polygons));
+                window.isHistoricalView = false;
+                window.canAppendPolygonHistory = true;
+                initializeHistoryVersionSelector();
+            }
+            if (result.historyFile) {
+                window.pendingPolygonOperations = [];
+            } else {
+                renderListDirty = false;
+            }
+            window.hasUnsavedChanges = renderListDirty;
             window.dirtyAuthors.clear();
-            btn.style.display = 'none';
+            btn.style.display = window.hasUnsavedChanges ? 'block' : 'none';
+            const followUp = renderListDirty
+                ? ' Lista kafelków nadal czeka na osobny zapis — kliknij przycisk ponownie.'
+                : '';
+            alert(`SUKCES: ${result.historyFile
+                ? `zapisano nową wersję mapy (${result.historyFile.split('/').pop()})`
+                : 'zapisano listę kafelków'}.${followUp}`);
             checkGitHubDeployStatus();
         } else {
-            alert("BŁĄD: " + txt);
+            alert("BŁĄD: " + await response.text());
         }
     })
     .catch(e => {
