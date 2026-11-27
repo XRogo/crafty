@@ -781,6 +781,8 @@
         window.polygonHistoryLoadError = null;
         window.polygonHistoryReplayError = null;
         window.canAppendPolygonHistory = false;
+        window.polygonHistoryLoadComplete = false;
+        window.hasSelectedHistoryVersion = false;
 
         window.registerPolygons = function (data) {
             if (!Array.isArray(data)) {
@@ -868,48 +870,68 @@
             });
         }
 
+        window.loadPolygonBaseline = async function () {
+            const baseline = window.POLYGON_HISTORY_BASELINE;
+            window.currentHistoryOperations = [];
+            window.polygonHistoryReplayError = null;
+            await loadHistoryScript(baseline);
+            if (window.polygonHistoryReplayError || !window.polygonHistoryBaselineData) {
+                throw new Error(window.polygonHistoryReplayError || 'Plik bazowy nie zawiera poligonów.');
+            }
+            window.polygonHistoryVersions = [{
+                filename: baseline,
+                operations: []
+            }];
+            window.currentPolygonHistoryIndex = 0;
+            window.currentPolygonSnapshot = window.buildPolygonSnapshot(0);
+        };
+
         window.loadPolygonHistory = async function () {
             const baseline = window.POLYGON_HISTORY_BASELINE;
-            let filenames;
             try {
                 const response = await fetch(`${window.MAP_SERVER_URL}/polygon-history?t=${Date.now()}`, { cache: 'no-store' });
                 if (!response.ok) throw new Error(`Serwer historii zwrócił HTTP ${response.status}.`);
-                filenames = await response.json();
+                let filenames = await response.json();
                 if (!Array.isArray(filenames)) throw new Error('Serwer zwrócił nieprawidłową listę historii.');
                 filenames = filenames.filter(name => typeof name === 'string' && parseHistoryFilename(name));
-            } catch (error) {
-                window.polygonHistoryLoadError = error.message;
-                filenames = [baseline];
-            }
+                if (!filenames.includes(baseline)) filenames.push(baseline);
+                filenames.sort((left, right) => {
+                    const a = parseHistoryFilename(left);
+                    const b = parseHistoryFilename(right);
+                    return a.time - b.time || a.suffix - b.suffix || left.localeCompare(right);
+                });
 
-            if (!filenames.includes(baseline)) filenames.push(baseline);
-            filenames.sort((left, right) => {
-                const a = parseHistoryFilename(left);
-                const b = parseHistoryFilename(right);
-                return a.time - b.time || a.suffix - b.suffix || left.localeCompare(right);
-            });
+                const historyFiles = filenames.filter(filename => filename !== baseline);
+                const sources = await Promise.all(historyFiles.map(async filename => {
+                    const fileResponse = await fetch(`poligons/${encodeURIComponent(filename)}?v=${Date.now()}`, { cache: 'no-store' });
+                    if (!fileResponse.ok) throw new Error(`Nie udało się załadować pliku ${filename} (HTTP ${fileResponse.status}).`);
+                    return { filename, source: await fileResponse.text() };
+                }));
 
-            for (const filename of filenames) {
-                try {
+                for (const { filename, source } of sources) {
                     window.currentHistoryOperations = [];
-                    await loadHistoryScript(filename);
+                    window.polygonHistoryReplayError = null;
+                    const script = document.createElement('script');
+                    script.textContent = source;
+                    document.body.appendChild(script);
+                    script.remove();
                     if (window.polygonHistoryReplayError) throw new Error(window.polygonHistoryReplayError);
                     window.polygonHistoryVersions.push({
                         filename,
                         operations: JSON.parse(JSON.stringify(window.currentHistoryOperations))
                     });
-                } catch (error) {
-                    window.polygonHistoryLoadError = error.message;
-                    if (filename === baseline) throw error;
-                    break;
                 }
-            }
 
-            if (!window.polygonHistoryVersions.length) throw new Error('Historia poligonów jest pusta.');
-            window.currentPolygonHistoryIndex = window.polygonHistoryVersions.length - 1;
-            window.currentPolygonSnapshot = window.buildPolygonSnapshot(window.currentPolygonHistoryIndex);
-            window.canAppendPolygonHistory = !window.polygonHistoryLoadError &&
-                window.polygonHistoryVersions[window.polygonHistoryVersions.length - 1].filename === filenames[filenames.length - 1];
+                window.currentPolygonHistoryIndex = window.polygonHistoryVersions.length - 1;
+                window.currentPolygonSnapshot = window.buildPolygonSnapshot(window.currentPolygonHistoryIndex);
+                window.canAppendPolygonHistory = window.polygonHistoryVersions.length === filenames.length &&
+                    window.polygonHistoryVersions[window.polygonHistoryVersions.length - 1].filename === filenames[filenames.length - 1];
+            } catch (error) {
+                window.polygonHistoryLoadError = error.message;
+                window.canAppendPolygonHistory = false;
+            }
+            window.polygonHistoryLoadComplete = true;
+            window.dispatchEvent(new Event('polygon-history-ready'));
         };
 
         window.currentLoadingAuthor = null;
@@ -918,21 +940,21 @@
     <script>
         const playersScript = document.createElement('script');
         playersScript.src = 'pleyer.js';
-        playersScript.onload = async () => {
+        const startMapApp = async () => {
             try {
-                await window.loadPolygonHistory();
+                await window.loadPolygonBaseline();
             } catch (error) {
                 window.polygonHistoryLoadError = error.message;
             }
             const appScript = document.createElement('script');
-            appScript.src = 'script.js?v=3.0';
+            appScript.src = 'script.js?v=3.1';
             document.body.appendChild(appScript);
+            window.loadPolygonHistory();
         };
+        playersScript.onload = startMapApp;
         playersScript.onerror = () => {
             window.polygonHistoryLoadError = 'Nie udało się załadować danych graczy.';
-            const appScript = document.createElement('script');
-            appScript.src = 'script.js?v=3.0';
-            document.body.appendChild(appScript);
+            startMapApp();
         };
         document.body.appendChild(playersScript);
     </script>

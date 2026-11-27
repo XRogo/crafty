@@ -159,7 +159,9 @@ function updateHistoryViewStatus() {
         status.textContent = `Nie udało się załadować historii: ${window.polygonHistoryLoadError || 'brak dostępnych wersji.'}`;
         return;
     }
-    status.textContent = window.isHistoricalView
+    status.textContent = !window.polygonHistoryLoadComplete
+        ? `Ładowanie historii w tle — wyświetlany stan bazowy: ${version.filename}`
+        : window.isHistoricalView
         ? `Tryb podglądu: ${version.filename}`
         : `Najnowsza wersja: ${version.filename}`;
     if (window.polygonHistoryLoadError) {
@@ -223,12 +225,29 @@ function initializeHistoryVersionSelector() {
         selector.appendChild(option);
     }
     selector.value = String(window.currentPolygonHistoryIndex);
-    selector.onchange = () => setPolygonHistoryVersion(Number(selector.value));
+    selector.onchange = () => {
+        window.hasSelectedHistoryVersion = true;
+        setPolygonHistoryVersion(Number(selector.value));
+    };
     updateHistoryViewStatus();
     updateHistoryUI();
 }
 
 initializeHistoryVersionSelector();
+const handlePolygonHistoryReady = () => {
+    initializeHistoryVersionSelector();
+    const latestIndex = window.polygonHistoryVersions.length - 1;
+    if (!window.hasSelectedHistoryVersion && latestIndex >= 0 &&
+        !window.hasUnsavedChanges && !isDrawing && !isEditing) {
+        setPolygonHistoryVersion(latestIndex, true);
+    } else {
+        updateHistoryViewStatus();
+        updateHistoryUI();
+        draw();
+    }
+};
+window.addEventListener('polygon-history-ready', handlePolygonHistoryReady);
+if (window.polygonHistoryLoadComplete) handlePolygonHistoryReady();
 
 let editorConfig = {
     category: 'terrain',
@@ -423,6 +442,12 @@ let viewX = 0, viewY = 0;
 let pixelRatio = 1;
 const cache = new Map();
 let tileQueue = [];
+const queuedTileKeys = new Set();
+const tileLastUsed = new Map();
+const MAX_CACHED_TILES = 300;
+const TILE_CACHE_CLEANUP_INTERVAL = 30000;
+let lastTileCacheCleanup = 0;
+let isProcessingTileQueue = false;
 let isPanning = false;
 let panStart = { x: 0, y: 0, viewX: 0, viewY: 0 };
 let lastX = 0, lastY = 0;
@@ -482,7 +507,10 @@ function getPixelScale() {
 //wczytywanie mapy – ładowanie kafelków
 function loadTile(tx, ty, level) {
     const key = `${level.folder}_${tx}_${ty}`;
-    if (cache.has(key)) return cache.get(key);
+    if (cache.has(key)) {
+        tileLastUsed.set(key, Date.now());
+        return cache.get(key);
+    }
     const tryLoad = (ext) => {
         const img = new Image();
         img.src = `tiles/${level.folder}/${tx}_${ty}.${ext}`;
@@ -490,6 +518,7 @@ function loadTile(tx, ty, level) {
             img.onload = () => {
                 img.alpha = 0; 
                 cache.set(key, img);
+                tileLastUsed.set(key, Date.now());
                 r(img);
             };
             img.onerror = () => r(null);
@@ -515,18 +544,46 @@ function loadTile(tx, ty, level) {
 }
 
 async function processTileQueue() {
-    if (tileQueue.length === 0) return;
-    
+    if (isProcessingTileQueue || tileQueue.length === 0) return;
+    isProcessingTileQueue = true;
     const MAX_CONCURRENT = 8;
-    const toLoad = tileQueue.splice(0, MAX_CONCURRENT);
-    
-    await Promise.all(toLoad.map(async ({ tx, ty, level, key }) => {
-        if (!cache.has(key) || cache.get(key) instanceof Promise) {
-            await loadTile(tx, ty, level);
+    try {
+        while (tileQueue.length > 0) {
+            tileQueue.sort((left, right) => {
+                const leftBpt = BLOCKS_PER_TILE[left.level.size];
+                const rightBpt = BLOCKS_PER_TILE[right.level.size];
+                const leftDistance = Math.hypot((left.tx + 0.5) * leftBpt - viewX, (left.ty + 0.5) * leftBpt - viewY);
+                const rightDistance = Math.hypot((right.tx + 0.5) * rightBpt - viewX, (right.ty + 0.5) * rightBpt - viewY);
+                return LEVELS.indexOf(left.level) - LEVELS.indexOf(right.level) || leftDistance - rightDistance;
+            });
+            const toLoad = tileQueue.splice(0, MAX_CONCURRENT);
+            await Promise.all(toLoad.map(async ({ tx, ty, level, key }) => {
+                queuedTileKeys.delete(key);
+                if (!cache.has(key)) await loadTile(tx, ty, level);
+            }));
         }
-    }));
+    } finally {
+        isProcessingTileQueue = false;
+        pruneTileCache();
+        if (tileQueue.length > 0) processTileQueue();
+    }
+}
 
-    processTileQueue();
+function pruneTileCache(visibleKeys = new Set()) {
+    const now = Date.now();
+    if (cache.size <= MAX_CACHED_TILES || now - lastTileCacheCleanup < TILE_CACHE_CLEANUP_INTERVAL) return;
+    lastTileCacheCleanup = now;
+
+    const candidates = Array.from(cache.entries())
+        .filter(([key, value]) => !visibleKeys.has(key) && !(value instanceof Promise))
+        .sort(([keyA], [keyB]) => (tileLastUsed.get(keyA) || 0) - (tileLastUsed.get(keyB) || 0));
+    let excess = cache.size - MAX_CACHED_TILES;
+    for (const [key] of candidates) {
+        if (excess <= 0) break;
+        cache.delete(key);
+        tileLastUsed.delete(key);
+        excess--;
+    }
 }
 
 function getViewportBounds() {
@@ -544,45 +601,64 @@ function getViewportBounds() {
 function drawTiles() {
     ctx.save();
     ctx.scale(pixelRatio, pixelRatio);
-    const level = getLevel();
-    const bpt = BLOCKS_PER_TILE[level.size];
-    const { scale: ppb, tilePixelSize } = getPixelScale();
+    const activeLevel = getLevel();
+    const { scale: ppb } = getPixelScale();
     const cx = innerWidth / 2, cy = innerHeight / 2;
 
     const bounds = getViewportBounds();
-    const startTx = Math.floor(bounds.minX / bpt);
-    const endTx = Math.ceil(bounds.maxX / bpt);
-    const startTy = Math.floor(bounds.minY / bpt);
-    const endTy = Math.ceil(bounds.maxY / bpt);
+    const visibleKeys = new Set();
+    const targetTiles = [];
 
-    for (let tx = startTx - 1; tx <= endTx + 1; tx++) {
-        for (let ty = startTy - 1; ty <= endTy + 1; ty++) {
-            if (Math.abs(tx) > 50 || Math.abs(ty) > 50) continue;
-            const key = `${level.folder}_${tx}_${ty}`;
-            const img = cache.get(key);
-            if (img && !(img instanceof Promise)) {
-                const bx = tx * bpt;
-                const bz = ty * bpt;
-                const rx = cx + (bx - viewX) * ppb;
-                const ry = cy + (bz - viewY) * ppb;
+    const activeLevelIndex = LEVELS.indexOf(activeLevel);
+    LEVELS.forEach((level, levelIndex) => {
+        const bpt = BLOCKS_PER_TILE[level.size];
+        const tilePixelSize = bpt * ppb;
+        const startTx = Math.floor(bounds.minX / bpt);
+        const endTx = Math.ceil(bounds.maxX / bpt);
+        const startTy = Math.floor(bounds.minY / bpt);
+        const endTy = Math.ceil(bounds.maxY / bpt);
 
-                if (img.alpha < 1) {
-                    img.alpha += 0.1;
-                    ctx.globalAlpha = img.alpha;
-                    needsRedraw = true;
-                } else {
-                    ctx.globalAlpha = 1;
-                }
+        for (let tx = startTx - 1; tx <= endTx + 1; tx++) {
+            for (let ty = startTy - 1; ty <= endTy + 1; ty++) {
+                if (Math.abs(tx) > 50 || Math.abs(ty) > 50) continue;
+                const key = `${level.folder}_${tx}_${ty}`;
+                const img = cache.get(key);
 
-                ctx.drawImage(img, rx, ry, tilePixelSize, tilePixelSize);
-            } else if (!cache.has(key)) {
-                if (!tileQueue.find(t => t.key === key)) {
-                    tileQueue.push({ tx, ty, level, key });
-                    processTileQueue();
+                if (img && !(img instanceof Promise)) {
+                    visibleKeys.add(key);
+                    tileLastUsed.set(key, Date.now());
+                    const rx = cx + (tx * bpt - viewX) * ppb;
+                    const ry = cy + (ty * bpt - viewY) * ppb;
+
+                    if (img.alpha < 1) {
+                        img.alpha += 0.1;
+                        ctx.globalAlpha = img.alpha;
+                        needsRedraw = true;
+                    } else {
+                        ctx.globalAlpha = 1;
+                    }
+                    ctx.drawImage(img, rx, ry, tilePixelSize, tilePixelSize);
+                } else if (levelIndex <= activeLevelIndex && !cache.has(key) && !queuedTileKeys.has(key)) {
+                    const centerX = (tx + 0.5) * bpt;
+                    const centerY = (ty + 0.5) * bpt;
+                    targetTiles.push({
+                        tx, ty, level, key,
+                        levelIndex,
+                        distance: Math.hypot(centerX - viewX, centerY - viewY)
+                    });
                 }
             }
         }
-    }
+    });
+
+    targetTiles.sort((left, right) =>
+        left.levelIndex - right.levelIndex || left.distance - right.distance);
+    targetTiles.forEach(({ tx, ty, level, key }) => {
+        queuedTileKeys.add(key);
+        tileQueue.push({ tx, ty, level, key });
+    });
+    processTileQueue();
+    pruneTileCache(visibleKeys);
     drawGrid();
     ctx.restore();
 }
@@ -780,7 +856,10 @@ function updateHistoryUI() {
         details.textContent = `\n${authors} · ${entry.filename}`;
         details.style.cssText = 'display:block;margin-top:5px;color:#aaa;white-space:normal;';
         row.append(title, details);
-        row.addEventListener('click', () => setPolygonHistoryVersion(entry.versionIndex));
+        row.addEventListener('click', () => {
+            window.hasSelectedHistoryVersion = true;
+            setPolygonHistoryVersion(entry.versionIndex);
+        });
         list.appendChild(row);
     });
 
